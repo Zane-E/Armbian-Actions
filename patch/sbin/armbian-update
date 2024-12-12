@@ -16,7 +16,6 @@ error() {
 
 # 提取 /etc/armbian-release 中的内核类型
 LINUXFAMILY=$(grep "^LINUXFAMILY=" /etc/armbian-release | cut -d'=' -f2) || error "未能成功获取内核类型，请检查 /etc/armbian-release 文件。"
-
 [[ -z "$LINUXFAMILY" ]] && error "内核类型为空，请检查 /etc/armbian-release 文件。"
 
 # 显示用法
@@ -39,47 +38,37 @@ validate_version_format() {
 get_latest_version() {
     CURRENT_MAJOR_MINOR=$(echo "$CURRENT_KERNEL" | grep -oP '^[0-9]+\.[0-9]+')
     versions=$(curl -fsSL --retry 3 --retry-delay 3 "https://github.com/Zane-E/Armbian-Actions/releases/expanded_assets/Armbian-Kernel") || error "无法访问 API，检查网络连接或 API 地址。"
-
     filtered_versions=$(echo "$versions" | \
         grep -oP '>kernel-\K[0-9]+\.[0-9]+\.[0-9]+-[a-z]+-('"${LINUXFAMILY}"')\.tar\.gz<' | \
         grep "${CURRENT_MAJOR_MINOR}")
-
     [[ -z "$filtered_versions" ]] && error "未找到与当前内核版本相同系列的内核。"
-
     echo "$filtered_versions" | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n 1
 }
 
 # 列出同系列内核版本
 list_all_versions() {
     versions=$(curl -fsSL --retry 3 --retry-delay 3 "https://github.com/Zane-E/Armbian-Actions/releases/expanded_assets/Armbian-Kernel") || error "无法访问 API，检查网络连接或 API 地址。"
-
         filtered_versions=$(echo "$versions" | \
         grep -oP '>kernel-\K[0-9]+\.[0-9]+\.[0-9]+-[a-z]+-('"${LINUXFAMILY}"')\.tar\.gz<')
-
         [[ -z "$filtered_versions" ]] && error "未找到相同系列的内核版本。"
-
         all_versions=$(echo "$filtered_versions" | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | sort -Vr)
         [[ -z "$all_versions" ]] && error "无法列出同系列内核版本。"
-
         columns=()
         for version_prefix in 6.1 6.6 6.11 6.12; do
                 column=$(echo "$all_versions" | grep "^${version_prefix}\." | head -n 5)
                 [[ -n "$column" ]] && columns+=("$column")
         done
-
         max_width=0
         for column in "${columns[@]}"; do
                 for version in $column; do
                         (( ${#version} > max_width )) && max_width=${#version}
                 done
         done
-
         max_lines=0
     for column in "${columns[@]}"; do
         num_lines=$(wc -l <<< "$column")
         (( num_lines > max_lines )) && max_lines=$num_lines
     done
-
     # echo -e "${INFO} 内核列表:"
     for i in $(seq 1 "$max_lines"); do
         printf "${VERSION}"
@@ -96,7 +85,6 @@ install_package() {
     local pkg="$1"
     DEB_FILE=$(ls ${pkg}*.deb 2>/dev/null)
     [[ -z "$DEB_FILE" ]] && error "未找到 [ \033[92m${pkg}*.deb\033[0m ] 文件。"
-
     dpkg -i "$DEB_FILE" >/dev/null 2>&1 || {
         echo -e "${ERROR} 安装 [ \033[92m$pkg\033[0m ] 失败！正在尝试更新包列表并修复依赖..."
         apt-get update >/dev/null 2>&1 && apt-get -f install -y >/dev/null 2>&1 || \
@@ -105,9 +93,7 @@ install_package() {
         dpkg -i "$DEB_FILE" >/dev/null 2>&1 || error "重新安装 [ \033[92m$pkg\033[0m ] 失败！"
     }
 }
-
 OPTERR=0
-
 while getopts "k:lh" opt; do
     case $opt in
         k) validate_version_format "$OPTARG" || exit 1; KERNEL_VERSION="$OPTARG" ;;
@@ -126,13 +112,9 @@ echo -e "${INFO} 当前内核版本: [ \033[92m$CURRENT_KERNEL\033[0m ]"
 
 # 获取/处理内核版本
 if [[ -z "$KERNEL_VERSION" ]]; then
-
     LATEST_VERSION=$(get_latest_version) || error "无法获取最新的 Linux 内核版本。"
-
     [[ -z "$LATEST_VERSION" || ! "$LATEST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && error "获取到的最新版本号格式错误：$LATEST_VERSION。"
-
     echo -e "${INFO} 最新内核版本: [ \033[92m$LATEST_VERSION\033[0m ]"
-
     if [[ "$CURRENT_KERNEL" == "$LATEST_VERSION" ]]; then
         echo -e "${INFO} 您的系统已是最新内核版本。"
         exit 0
@@ -146,7 +128,6 @@ if [[ -z "$KERNEL_VERSION" ]]; then
         echo -e "${INFO} 您的系统已是最新内核版本。"
         exit 0
     fi
-
 else
     echo -e "${INFO} 您指定的内核版本: [ \033[92m$KERNEL_VERSION\033[0m ]"
 fi
@@ -159,7 +140,6 @@ case "$KERNEL_VERSION" in
     6.12.*) KERNEL_TYPE="edge" ;;
     *) read -p "$(echo -e "${OPTIONS} 未定义的内核版本，请输入自定义内核类型: ")" KERNEL_TYPE
 esac
-
 echo -e "${INFO} 内核类型是: [ \033[92m${KERNEL_TYPE}-${LINUXFAMILY}\033[0m ]"
 
 # 选择是否使用代理下载
@@ -178,18 +158,15 @@ echo -e "${STEPS} 创建临时目录: [ \033[92m$TEMP_DIR\033[0m ]"
 
 # 生成下载链接
 DOWNLOAD_URL="${PROXY_URL}https://github.com/Zane-E/Armbian-Actions/releases/download/Armbian-Kernel/kernel-${KERNEL_VERSION}-${KERNEL_TYPE}-${LINUXFAMILY}.tar.gz"
-
 echo -e "${STEPS} 开始下载文件: [ \033[92mkernel-${KERNEL_VERSION}-${KERNEL_TYPE}-${LINUXFAMILY}.tar.gz\033[0m ]"
 
 # 下载文件
 cd "$TEMP_DIR" || exit
 wget -q -O "kernel-${KERNEL_VERSION}-${KERNEL_TYPE}-${LINUXFAMILY}.tar.gz" "$DOWNLOAD_URL" || error "下载失败，请检查版本号或网络连接。"
-
 echo -e "${SUCCESS} 下载完成！"
 
 # 解压下载的文件
 tar -xzf "kernel-${KERNEL_VERSION}-${KERNEL_TYPE}-${LINUXFAMILY}.tar.gz" || error "解压失败，请检查压缩文件。"
-
 echo -e "${SUCCESS} 解压完成！"
 
 # 安装文件
@@ -198,7 +175,6 @@ for pkg in linux-dtb linux-image linux-headers; do
     echo -e "${STEPS} 正在安装: [ \033[92m$pkg\033[0m ]"
     install_package "$pkg" || exit 1
 done
-
 echo -e "${SUCCESS} 所需文件已安装！"
 
 # 返回原始目录并删除临时目录
@@ -209,7 +185,6 @@ echo -e "${SUCCESS} 临时目录已删除！"
 # 提示是否重启
 read -p "$(echo -e "${OPTIONS} 是否立即重启系统？[Y/n]: ")" REBOOT_CHOICE
 REBOOT_CHOICE=${REBOOT_CHOICE:-y}
-
 if [[ "$REBOOT_CHOICE" =~ ^[Yy]$ ]]; then
     echo -e "${INFO} 系统将在 5 秒后重启，按 Ctrl+C 取消重启。"
     for ((i=5; i>=0; i--)); do
