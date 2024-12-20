@@ -69,25 +69,25 @@ function prepare_kernel_packaging_debs() {
 	if [[ "${KERNEL_DTB_ONLY}" != "yes" ]]; then
 		# package the linux-image (image, modules, dtbs (if present))
 		display_alert "Packaging linux-image" "${LINUXFAMILY} ${LINUXCONFIG}" "info"
-		create_kernel_deb "linux-image-${BRANCH}-${LINUXFAMILY}" "${debs_target_dir}" kernel_package_callback_linux_image "linux-image"
+		create_kernel_deb "linux-image-${LINUXFAMILY}" "${debs_target_dir}" kernel_package_callback_linux_image "linux-image"
 	fi
 
 	# if dtbs present, package those too separately, for u-boot usage.
 	if [[ -d "${tmp_kernel_install_dirs[INSTALL_DTBS_PATH]}" ]]; then
 		display_alert "Packaging linux-dtb" "${LINUXFAMILY} ${LINUXCONFIG}" "info"
-		create_kernel_deb "linux-dtb-${BRANCH}-${LINUXFAMILY}" "${debs_target_dir}" kernel_package_callback_linux_dtb "linux-dtb"
+		create_kernel_deb "linux-dtb-${LINUXFAMILY}" "${debs_target_dir}" kernel_package_callback_linux_dtb "linux-dtb"
 	fi
 
 	if [[ "${KERNEL_DTB_ONLY}" != "yes" ]]; then
 		if [[ "${KERNEL_HAS_WORKING_HEADERS}" == "yes" ]]; then
 			display_alert "Packaging linux-headers" "${LINUXFAMILY} ${LINUXCONFIG}" "info"
-			create_kernel_deb "linux-headers-${BRANCH}-${LINUXFAMILY}" "${debs_target_dir}" kernel_package_callback_linux_headers "linux-headers"
+			create_kernel_deb "linux-headers-${LINUXFAMILY}" "${debs_target_dir}" kernel_package_callback_linux_headers "linux-headers"
 		else
 			display_alert "Skipping linux-headers package" "for ${KERNEL_MAJOR_MINOR} kernel version" "info"
 		fi
 
 		display_alert "Packaging linux-libc-dev" "${LINUXFAMILY} ${LINUXCONFIG}" "info"
-		create_kernel_deb "linux-libc-dev-${BRANCH}-${LINUXFAMILY}" "${debs_target_dir}" kernel_package_callback_linux_libc_dev "linux-libc-dev"
+		create_kernel_deb "linux-libc-dev-${LINUXFAMILY}" "${debs_target_dir}" kernel_package_callback_linux_libc_dev "linux-libc-dev"
 	fi
 
 	return 0
