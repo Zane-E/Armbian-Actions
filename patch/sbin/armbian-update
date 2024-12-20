@@ -157,11 +157,11 @@ tar -xzf "kernel-${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" || error "解压失败
 echo -e "${SUCCESS} 解压完成！"
 
 # 安装文件
-for pkg in linux-dtb linux-image linux-headers; do
+for pkg in linux-libc-dev linux-headers linux-image linux-dtb; do
     echo -e "${STEPS} 正在安装: [ \033[92m$pkg\033[0m ]"
     install_package "$pkg" || exit 1
 done
-echo -e "${SUCCESS} 所需文件已安装！"
+echo -e "${SUCCESS} 所有文件已安装！"
 
 # 返回原始目录并删除临时目录
 cd - > /dev/null 2>&1
