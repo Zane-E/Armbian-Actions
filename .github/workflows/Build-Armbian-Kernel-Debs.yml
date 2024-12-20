@@ -187,7 +187,7 @@ jobs:
             KERNEL_VERSION=$(echo "$file" | cut -d '_' -f 5 | cut -d '-' -f 1)
             echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
             echo "Extracted KERNEL_VERSION: $KERNEL_VERSION"
-            BOARDFAMILY=$(echo "$file" | cut -d '-' -f 4 | cut -d '_' -f 1)
+            BOARDFAMILY=$(echo "$file" | cut -d '-' -f 3 | cut -d '_' -f 1)
             echo "BOARDFAMILY=$BOARDFAMILY" >> $GITHUB_ENV
             echo "Extracted BOARDFAMILY: $BOARDFAMILY"
             
