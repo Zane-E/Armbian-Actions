@@ -85,6 +85,7 @@ jobs:
           cd build/
           
           cp -f ${{ github.workspace }}/patch/fixdeb/* lib/functions/compilation/
+          cp -f ${{ github.workspace }}/patch/artifact/* lib/functions/artifacts/
           cp -f ${{ github.workspace }}/patch/config/* config/kernel/
           cp -f ${{ github.workspace }}/patch/VERSION ./
 
