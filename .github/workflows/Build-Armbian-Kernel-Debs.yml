@@ -114,6 +114,7 @@ jobs:
           cp -f ${{ github.workspace }}/patch/fiximg/* lib/functions/configuration/
           cp -f ${{ github.workspace }}/patch/config/* config/kernel/
           cp -f ${{ github.workspace }}/patch/sbin/* packages/bsp/common/usr/sbin/
+          cp -f ${{ github.workspace }}/patch/artifact/* lib/functions/artifacts/
           cp -f ${{ github.workspace }}/patch/VERSION ./
 
           # T4 Patch
