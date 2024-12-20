@@ -109,6 +109,7 @@ jobs:
           cp -f ${{ github.workspace }}/patch/config/* config/kernel/
           cp -f ${{ github.workspace }}/patch/fixdeb/* lib/functions/compilation/
           cp -f ${{ github.workspace }}/patch/fiximg/* lib/functions/configuration/
+          cp -f ${{ github.workspace }}/patch/artifact/* lib/functions/artifacts/
           cp -f ${{ github.workspace }}/patch/sbin/* packages/bsp/common/usr/sbin/
           cp -f ${{ github.workspace }}/patch/VERSION ./
           cp -f ${{ github.workspace }}/patch/T4/fix-CPU-information.patch patch/kernel/archive/rockchip64-6.12/
