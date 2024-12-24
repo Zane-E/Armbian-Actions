@@ -54,7 +54,7 @@ list_all_versions() {
     all_versions=$(echo "$filtered_versions" | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | sort -Vr)
     [[ -z "$all_versions" ]] && error "无法列出同系列内核版本。"
     columns=()
-    for version_prefix in 6.1 6.6 6.11 6.12; do
+    for version_prefix in 6.1 6.6 6.11 6.12 6.13; do
         column=$(echo "$all_versions" | grep "^${version_prefix}\." | head -n 5)
         [[ -n "$column" ]] && columns+=("$column")
     done
