@@ -1,0 +1,145 @@
+--- a/arch/arm64/boot/dts/rockchip/rk3399-nanopi4.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399-nanopi4.dtsi
+@@ -13,7 +13,7 @@
+ 
+ /dts-v1/;
+ #include <dt-bindings/input/linux-event-codes.h>
+-#include "rk3399.dtsi"
++#include "rk3399-op1.dtsi"
+ 
+ / {
+ 	aliases {
+
+--- a/arch/arm64/boot/dts/rockchip/rk3399-op1.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399-op1.dtsi
+@@ -12,32 +12,36 @@
+ 
+ 		opp00 {
+ 			opp-hz = /bits/ 64 <408000000>;
+-			opp-microvolt = <800000 800000 1150000>;
++			opp-microvolt = <800000 800000 1350000>;
+ 			clock-latency-ns = <40000>;
+ 		};
+ 		opp01 {
+ 			opp-hz = /bits/ 64 <600000000>;
+-			opp-microvolt = <825000 825000 1150000>;
++			opp-microvolt = <825000 825000 1350000>;
+ 		};
+ 		opp02 {
+ 			opp-hz = /bits/ 64 <816000000>;
+-			opp-microvolt = <850000 850000 1150000>;
++			opp-microvolt = <850000 850000 1350000>;
+ 		};
+ 		opp03 {
+ 			opp-hz = /bits/ 64 <1008000000>;
+-			opp-microvolt = <900000 900000 1150000>;
++			opp-microvolt = <900000 900000 1350000>;
+ 		};
+ 		opp04 {
+ 			opp-hz = /bits/ 64 <1200000000>;
+-			opp-microvolt = <975000 975000 1150000>;
++			opp-microvolt = <975000 975000 1350000>;
+ 		};
+ 		opp05 {
+ 			opp-hz = /bits/ 64 <1416000000>;
+-			opp-microvolt = <1100000 1100000 1150000>;
++			opp-microvolt = <1100000 1100000 1350000>;
+ 		};
+ 		opp06 {
+-			opp-hz = /bits/ 64 <1512000000>;
+-			opp-microvolt = <1150000 1150000 1150000>;
++			opp-hz = /bits/ 64 <1608000000>;
++			opp-microvolt = <1200000 1200000 1350000>;
++		};
++		opp07 {
++			opp-hz = /bits/ 64 <1800000000>;
++			opp-microvolt = <1300000 1300000 1350000>;
+ 		};
+ 	};
+ 
+@@ -47,40 +51,44 @@
+ 
+ 		opp00 {
+ 			opp-hz = /bits/ 64 <408000000>;
+-			opp-microvolt = <800000 800000 1250000>;
++			opp-microvolt = <800000 800000 1350000>;
+ 			clock-latency-ns = <40000>;
+ 		};
+ 		opp01 {
+ 			opp-hz = /bits/ 64 <600000000>;
+-			opp-microvolt = <800000 800000 1250000>;
++			opp-microvolt = <800000 800000 1350000>;
+ 		};
+ 		opp02 {
+ 			opp-hz = /bits/ 64 <816000000>;
+-			opp-microvolt = <825000 825000 1250000>;
++			opp-microvolt = <825000 825000 1350000>;
+ 		};
+ 		opp03 {
+ 			opp-hz = /bits/ 64 <1008000000>;
+-			opp-microvolt = <850000 850000 1250000>;
++			opp-microvolt = <850000 850000 1350000>;
+ 		};
+ 		opp04 {
+ 			opp-hz = /bits/ 64 <1200000000>;
+-			opp-microvolt = <900000 900000 1250000>;
++			opp-microvolt = <900000 900000 1350000>;
+ 		};
+ 		opp05 {
+ 			opp-hz = /bits/ 64 <1416000000>;
+-			opp-microvolt = <975000 975000 1250000>;
++			opp-microvolt = <975000 975000 1350000>;
+ 		};
+ 		opp06 {
+ 			opp-hz = /bits/ 64 <1608000000>;
+-			opp-microvolt = <1050000 1050000 1250000>;
++			opp-microvolt = <1050000 1050000 1350000>;
+ 		};
+ 		opp07 {
+ 			opp-hz = /bits/ 64 <1800000000>;
+-			opp-microvolt = <1150000 1150000 1250000>;
++			opp-microvolt = <1150000 1150000 1350000>;
+ 		};
+ 		opp08 {
+ 			opp-hz = /bits/ 64 <2016000000>;
+-			opp-microvolt = <1250000 1250000 1250000>;
++			opp-microvolt = <1250000 1250000 1350000>;
++		};
++		opp09 {
++			opp-hz = /bits/ 64 <2200000000>;
++			opp-microvolt = <1325000 1325000 1350000>;
+ 		};
+ 	};
+
+--- a/arch/arm64/boot/dts/rockchip/rk3399-base.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399-base.dtsi
+@@ -312,7 +312,7 @@
+ 				<0 0 0 2 &pcie0_intc 1>,
+ 				<0 0 0 3 &pcie0_intc 2>,
+ 				<0 0 0 4 &pcie0_intc 3>;
+-		max-link-speed = <1>;
++		max-link-speed = <2>;
+ 		msi-map = <0x0 &its 0x0 0x1000>;
+ 		phys = <&pcie_phy 0>, <&pcie_phy 1>,
+ 		       <&pcie_phy 2>, <&pcie_phy 3>;
+
+--- a/arch/arm64/boot/dts/rockchip/rk3399-nanopc-t4.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399-nanopc-t4.dts
+@@ -42,7 +42,7 @@
+ 		 * With 20KHz PWM and an EVERCOOL EC4007H12SA fan, these levels
+ 		 * work out to 0, ~1200, ~3000, and 5000RPM respectively.
+ 		 */
+-		cooling-levels = <0 12 18 255>;
++		cooling-levels = <0 18 24 255>;
+ 		#cooling-cells = <2>;
+ 		fan-supply = <&vcc12v0_sys>;
+ 		pwms = <&pwm1 0 50000 0>;
+@@ -59,7 +59,7 @@
+ &cpu_thermal {
+ 	trips {
+ 		cpu_warm: cpu_warm {
+-			temperature = <55000>;
++			temperature = <40000>;
+ 			hysteresis = <2000>;
+ 			type = "active";
+ 		};
