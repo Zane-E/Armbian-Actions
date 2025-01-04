@@ -1,7 +1,7 @@
 ### 通过 GitHub Actions 构建 Armbian 固件和内核
 - 内核配置：启用 eBPF 支持，支持 DAE 代理，适用于 mesons64、rockchip64 和 rk35xx-vendor。
 - 针对 Nanopc-T4：
-  - 小核超频至 1.8GHz，大核超频至 2.2GHz。
+  - 小核频率 1.5GHz，大核频率 2.0GHz。
   - 启用 PCIe 2.1 x4 支持。
   - CPU 温度达到 40°C 时启动风扇，65°C 时风扇全速运转。
 - 针对 Rock5C Lite：

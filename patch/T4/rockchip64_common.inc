@@ -98,7 +98,7 @@ case "$BOOT_SOC" in
 		;;
 
 	rk3399)
-		CPUMAX=${CPUMAX:="2200000"}
+		CPUMAX=${CPUMAX:="2016000"}
 		BOOT_SCENARIO="${BOOT_SCENARIO:=only-blobs}"
 		DDR_BLOB="${DDR_BLOB:-"rk33/rk3399_ddr_933MHz_v1.25.bin"}"
 		MINILOADER_BLOB="${MINILOADER_BLOB:-"rk33/rk3399_miniloader_v1.26.bin"}"

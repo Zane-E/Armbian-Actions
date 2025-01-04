@@ -10,35 +10,6 @@
  / {
  	aliases {
 
---- a/arch/arm64/boot/dts/rockchip/rk3399-op1-opp.dtsi
-+++ b/arch/arm64/boot/dts/rockchip/rk3399-op1-opp.dtsi
-@@ -34,8 +34,12 @@
- 			opp-microvolt = <1100000>;
- 		};
- 		opp06 {
--			opp-hz = /bits/ 64 <1512000000>;
--			opp-microvolt = <1150000>;
-+			opp-hz = /bits/ 64 <1608000000>;
-+			opp-microvolt = <1200000>;
-+		};
-+		opp07 {
-+			opp-hz = /bits/ 64 <1800000000>;
-+			opp-microvolt = <1300000>;
- 		};
- 	};
-
-@@ -80,6 +84,10 @@
- 			opp-hz = /bits/ 64 <2016000000>;
- 			opp-microvolt = <1250000>;
- 		};
-+		opp09 {
-+			opp-hz = /bits/ 64 <2200000000>;
-+			opp-microvolt = <1325000>;
-+		};
- 	};
-
- 	gpu_opp_table: opp-table-2 {
-
 --- a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
 +++ b/rch/arm64/boot/dts/rockchip/rk3399.dtsi
 @@ -312,7 +312,7 @@
