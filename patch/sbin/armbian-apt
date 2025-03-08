@@ -172,14 +172,12 @@ select_mirror_site() {
             fi
         fi
 
-        # 恢复默认源
         if [[ -f "${debian_source_backup_file}" ]]; then
             cp -f "${debian_source_backup_file}" "${debian_source_file}"
             rm -f "${source_backup_file}" "${source_file}"
             echo -e "${SUCCESS} 成功恢复 [\033[92m ${VERSION_CODENAME} \033[0m] 默认源。"
         fi
 
-        # 恢复默认源
         if [[ -f "${ubuntu_source_backup_file}" ]]; then
             cp -f "${ubuntu_source_backup_file}" "${ubuntu_source_file}"
             rm -f "${source_backup_file}" "${source_file}"
@@ -197,24 +195,8 @@ select_mirror_site() {
     change_source_list
 }
 
-# 检查当前软件源
-show_current_source() {
-    echo -e "${INFO} 当前软件源："
-    grep -E "^deb " "${source_file}" | while read -r line; do
-        echo -e "${INFO} ${line}"
-    done
-    if ! grep -qE "^deb " "${source_file}"; then
-        echo -e "${ERROR} 当前没有配置软件源。"
-    fi
-}
-
 # 检查系统版本
 check_release
-
-# echo -e "${INFO} 欢迎使用软件源更改脚本。"
-
-# 显示当前软件源
-# show_current_source
 
 # 备份软件源列表
 backup_source_list
