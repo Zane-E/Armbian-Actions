@@ -12,8 +12,7 @@ cp -f $GITHUB_WORKSPACE/patch/T4/fix-CPU-information.patch patch/kernel/archive/
 cp -f $GITHUB_WORKSPACE/patch/T4/t4.patch patch/kernel/archive/rockchip64-6.14/
 cp -f $GITHUB_WORKSPACE/patch/T4/t4.patch patch/kernel/archive/rockchip64-6.12/
 mv -f config/boards/nanopct4.csc config/boards/nanopct4.conf
-rm -f patch/kernel/archive/rockchip64-6.12/rk3568-bugfix-amadeus_phy_rockchip_naneng_combphy_compatible_reset_with_old_dt.patch
-sed -i 's/tag:v6\.14-rc4/tag:v6\.14-rc5/' config/sources/mainline-kernel.conf.sh
+sed -i 's/tag:v6\.14-rc4/tag:v6\.14-rc6/' config/sources/mainline-kernel.conf.sh
 
 # 5C Patches
 echo "Copying 5C patches..."
