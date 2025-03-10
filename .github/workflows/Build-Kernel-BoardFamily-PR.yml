@@ -63,17 +63,14 @@ jobs:
           git config --global user.email "actions@github.com"
           git fetch origin pull/${{ inputs.PR }}/head:pr-branch
           git merge pr-branch --no-ff -m "Merge PR #${{ inputs.PR }} into main"
-          cp -f $GITHUB_WORKSPACE/patch/T4/fix-CPU-information.patch patch/kernel/archive/rockchip64-6.14/
-          cp -f $GITHUB_WORKSPACE/patch/T4/t4.patch patch/kernel/archive/rockchip64-6.14/
-          cp -f $GITHUB_WORKSPACE/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-6.14/dt/
 
       - name: Apply patches
         run: |
           cd $GITHUB_WORKSPACE/build
           chmod +x $GITHUB_WORKSPACE/scripts/apply_patches.sh
           $GITHUB_WORKSPACE/scripts/apply_patches.sh
-          # sed -i 's/tag:v6\.14-rc2/tag:v6\.14-rc4/' config/sources/mainline-kernel.conf.sh
-          # sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|' lib/functions/configuration/main-config.sh
+          # sed -i 's/tag:v6\.14-rc4/tag:v6\.14-rc6/' config/sources/mainline-kernel.conf.sh
+          sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|' lib/functions/configuration/main-config.sh
           ls -la
 
       - name: Compile Kernel [ ${{ inputs.BOARD }} ${{ inputs.BRANCH }} ]
