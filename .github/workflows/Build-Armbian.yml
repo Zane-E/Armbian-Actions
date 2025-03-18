@@ -13,6 +13,7 @@ on:
           - 'rock-5c'
           - 'panther-x2'
           - 'aml-s9xx-box'
+          - 'radxa-cubie-a5e'
       BRANCH:
         description: 'Armbian branch'
         default: 'current'
@@ -22,6 +23,7 @@ on:
           - 'current'
           - 'edge'
           - 'vendor'
+          - 'dev'
       RELEASE:
         description: 'Release name'
         default: 'bookworm'
