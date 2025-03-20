@@ -12,7 +12,6 @@ cp -f $GITHUB_WORKSPACE/patch/T4/fix-CPU-information.patch patch/kernel/archive/
 cp -f $GITHUB_WORKSPACE/patch/T4/t4.patch patch/kernel/archive/rockchip64-6.14/
 cp -f $GITHUB_WORKSPACE/patch/T4/t4.patch patch/kernel/archive/rockchip64-6.12/
 mv -f config/boards/nanopct4.csc config/boards/nanopct4.conf
-sed -i 's/tag:v6\.14-rc4/tag:v6\.14-rc6/' config/sources/mainline-kernel.conf.sh
 
 # 5C Patches
 echo "Copying 5C patches..."
