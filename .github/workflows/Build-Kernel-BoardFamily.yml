@@ -1,0 +1,134 @@
+name: Build-Kernel-BoardFamily
+
+on:
+  workflow_dispatch:
+    inputs:
+      BOARD:
+        description: 'Board type'
+        required: true
+        default: 'nanopct4'
+        type: choice
+        options:
+          - 'nanopct4'
+          - 'rock-5c'
+          - 'aml-s9xx-box'
+      BRANCH:
+        description: 'Armbian branch'
+        default: 'current'
+        required: true
+        type: choice
+        options:
+          - 'current'
+          - 'edge'
+          - 'vendor'
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialization environment
+        id: init
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          docker_images_ids=$(docker images -q)
+          [ -n "$docker_images_ids" ] && docker rmi $docker_images_ids
+          docker image prune -a -f
+          sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* openjdk* mysql* php* mongodb* dotnet* moby* snapd* android* || true
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
+          sudo timedatectl set-timezone "${TZ}"
+          sudo mkdir -p /mnt/workdir
+          sudo chown $USER:$GROUPS /mnt/workdir
+          df -Th
+
+      - name: Download source code
+        working-directory: /mnt/workdir
+        run: |
+          df -hT ${PWD}
+          git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build.git build
+          ln -sf /mnt/workdir/build $GITHUB_WORKSPACE/build
+
+      - name: Apply patches
+        run: |
+          cd $GITHUB_WORKSPACE/build
+          chmod +x $GITHUB_WORKSPACE/scripts/apply_patches.sh
+          $GITHUB_WORKSPACE/scripts/apply_patches.sh
+          ls -la
+
+      - name: Compile Kernel [ ${{ inputs.BOARD }} ${{ inputs.BRANCH }} ]
+        run: |
+          cd /mnt/workdir/build/
+          ./compile.sh kernel BOARD=${{ inputs.BOARD }} BRANCH=${{ inputs.BRANCH }} PREFER_DOCKER=no DOCKER_ARMBIAN_BASE_IMAGE=ubuntu:jammy DEB_COMPRESS=xz
+
+      - name: Prepare Kernel
+        run: |
+          cd "${GITHUB_WORKSPACE}/build/output/debs/"
+          file=$(find . -maxdepth 1 -type f -name 'linux-image-*.deb' | head -n 1)
+
+          if [ -n "$file" ]; then
+            echo "Found file: $file"
+            KERNEL_VERSION=$(echo "$file" | cut -d '_' -f 5 | cut -d '-' -f 1)
+            [[ ! "$KERNEL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && KERNEL_VERSION="${KERNEL_VERSION}.0"
+            echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
+            echo "Extracted KERNEL_VERSION: $KERNEL_VERSION"
+            BOARDFAMILY=$(echo "$file" | cut -d '-' -f 3 | cut -d '_' -f 1)
+            echo "BOARDFAMILY=$BOARDFAMILY" >> $GITHUB_ENV
+            echo "Extracted BOARDFAMILY: $BOARDFAMILY"
+          else
+            echo "No matching file found. Available files are:"
+            ls -1 "${GITHUB_WORKSPACE}/build/output/debs/"
+            exit 1
+          fi
+
+          matching_files_array=($(ls linux-dtb* linux-headers* linux-image* linux-libc* 2>/dev/null))
+
+          if [ ${#matching_files_array[@]} -gt 0 ]; then
+            tar -czf "../kernel-${KERNEL_VERSION}-${BOARDFAMILY}.tar.gz" "${matching_files_array[@]}"
+            echo "Compressed matching files to kernel-${KERNEL_VERSION}-${BOARDFAMILY}.tar.gz"
+          else
+            echo "No matching files found for compression."
+            exit 1
+          fi
+
+          tar -tzf "../kernel-${KERNEL_VERSION}-${BOARDFAMILY}.tar.gz" || { echo "Failed to create valid tar.gz file"; exit 1; }
+
+      - name: Upload Kernel Packages to Release
+        if: success()
+        uses: ncipollo/release-action@main
+        with:
+          tag: "Armbian-Kernel"
+          name: "Armbian-Kernel"
+          artifacts: "${{ github.workspace }}/build/output/kernel-${{ env.KERNEL_VERSION }}-${{ env.BOARDFAMILY }}.tar.gz"
+          allowUpdates: true
+          removeArtifacts: false
+          replacesArtifacts: true
+          token: ${{ secrets.GH_TOKEN }}
+          body: |
+            ### Armbian Kernel Packages
+            - Usage method: After unzipping, install the deb packages in order
+            - Packages include: linux-dtb | linux-headers | linux-image | linux-libc-dev
+          draft: false
+          prerelease: false
+
+      - name: Delete releases and workflows runs
+        uses: ophub/delete-releases-workflows@main
+        with:
+          delete_releases: true
+          releases_keep_latest: 10
+          delete_workflows: true
+          workflows_keep_day: 3
+          gh_token: ${{ secrets.GH_TOKEN }}
+
+      - name: Telegram notification
+        run: |
+          MSG="
+          ${{ env.KERNEL_VERSION }}-${{ env.BOARDFAMILY }} 编译完成！
+          "
+          curl "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_TO }}&text=${MSG}"
