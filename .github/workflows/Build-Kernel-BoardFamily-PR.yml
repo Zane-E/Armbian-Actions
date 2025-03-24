@@ -71,6 +71,7 @@ jobs:
           $GITHUB_WORKSPACE/scripts/apply_patches.sh
           sed -i 's/tag:v6\.14-rc7/tag:v6\.14/' config/sources/mainline-kernel.conf.sh
           sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|' lib/functions/configuration/main-config.sh
+          rm -f patch/kernel/archive/rockchip64-6.14/rk3588-1013-arm64-dts-rockchip-disable-emmc-hs400-for-rock-5-itx.patch
           ls -la
 
       - name: Compile Kernel [ ${{ inputs.BOARD }} ${{ inputs.BRANCH }} ]
