@@ -69,8 +69,8 @@ jobs:
           cd $GITHUB_WORKSPACE/build
           chmod +x $GITHUB_WORKSPACE/scripts/apply_patches.sh
           $GITHUB_WORKSPACE/scripts/apply_patches.sh
-          # sed -i 's/tag:v6\.14-rc6/tag:v6\.14-rc7/' config/sources/mainline-kernel.conf.sh
-          # sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|' lib/functions/configuration/main-config.sh
+          sed -i 's/tag:v6\.14-rc7/tag:v6\.14/' config/sources/mainline-kernel.conf.sh
+          sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|' lib/functions/configuration/main-config.sh
           ls -la
 
       - name: Compile Kernel [ ${{ inputs.BOARD }} ${{ inputs.BRANCH }} ]
