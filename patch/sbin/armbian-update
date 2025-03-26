@@ -13,7 +13,7 @@ SN="[\033[96m 序号 \033[0m]"         # 序号
 release_file="/etc/armbian-release"
 
 # 定义内核版本
-VERSION_PREFIXES="6.1 6.12 6.13 6.14"
+VERSION_PREFIXES="6.1 6.12 6.14"
 
 # 代理加速网站
 PROXY1="gh-proxy.com"
