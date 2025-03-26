@@ -24,8 +24,8 @@ cp -f $GITHUB_WORKSPACE/patch/5C/diyfan.patch patch/kernel/rk35xx-vendor-6.1/
 echo "Copying N1 patches..."
 cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-1.patch patch/kernel/archive/meson64-6.12/
 cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-2.patch patch/kernel/archive/meson64-6.12/
-cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-1.patch patch/kernel/archive/meson64-6.13/
-cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-2.patch patch/kernel/archive/meson64-6.13/
+cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-1.patch patch/kernel/archive/meson64-6.14/
+cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-2.patch patch/kernel/archive/meson64-6.14/
 cp -f $GITHUB_WORKSPACE/patch/N1/aml-s9xx-box.tvb config/boards/
 mv -f config/boards/aml-s9xx-box.tvb config/boards/aml-s9xx-box.conf
 cp -f $GITHUB_WORKSPACE/patch/N1/u-boot.ext config/optional/boards/aml-s9xx-box/_packages/bsp-cli/boot/
