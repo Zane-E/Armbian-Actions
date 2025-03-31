@@ -1,0 +1,228 @@
+name: Build-Armbian-Kernel-Debs
+
+on:
+  workflow_dispatch:
+    inputs:
+      BOARD:
+        description: 'Board type'
+        required: true
+        default: 'nanopct4'
+        type: choice
+        options:
+          - 'nanopct4'
+          - 'rock-5c'
+          - 'aml-s9xx-box'
+      BRANCH:
+        description: 'Armbian branch'
+        default: 'current'
+        required: true
+        type: choice
+        options:
+          - 'current'
+          - 'edge'
+          - 'vendor'
+      RELEASE:
+        description: 'Release name'
+        default: 'bookworm'
+        required: true
+        type: choice
+        options:
+          - 'bookworm'
+          - 'trixie'
+          - 'jammy'
+          - 'noble'
+      BUILD_DESKTOP:
+        description: 'Build desktop environment'
+        default: 'no'
+        required: false
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+      BUILD_MINIMAL:
+        description: 'BUILD MINIMAL environment'
+        default: 'yes'
+        required: false
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+      PREFER_DOCKER:
+        description: 'Use Docker build'
+        default: 'no'
+        required: false
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+      DOCKER_ARMBIAN_BASE_IMAGE:
+        description: 'Docker IMAGE'
+        default: 'ubuntu:jammy'
+        required: false
+        type: choice
+        options:
+          - 'ubuntu:jammy'
+          - 'ubuntu:noble'
+          - 'debian:bookworm'
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  build-armbian:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialization environment
+        id: init
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          docker_images_ids=$(docker images -q)
+          [ -n "$docker_images_ids" ] && docker rmi $docker_images_ids
+          docker image prune -a -f
+          sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* openjdk* mysql* php* mongodb* dotnet* moby* snapd* android* || true
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
+          sudo timedatectl set-timezone "${TZ}"
+          sudo mkdir -p /mnt/workdir
+          sudo chown $USER:$GROUPS /mnt/workdir
+          df -Th
+
+      - name: Download source code
+        working-directory: /mnt/workdir
+        run: |
+          df -hT ${PWD}
+          git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build.git build
+          ln -sf /mnt/workdir/build $GITHUB_WORKSPACE/build
+
+      - name: Apply patches
+        run: |
+          cd $GITHUB_WORKSPACE/build
+          chmod +x $GITHUB_WORKSPACE/scripts/apply_patches.sh
+          $GITHUB_WORKSPACE/scripts/apply_patches.sh
+          ls -la
+
+      - name: Compile Armbian [ ${{ inputs.BOARD }} ${{ inputs.BRANCH }} ${{ inputs.RELEASE }} ]
+        run: |
+          cd /mnt/workdir/build/
+          ./compile.sh build BOARD=${{ inputs.BOARD }} BRANCH=${{ inputs.BRANCH }} RELEASE=${{ inputs.RELEASE }} BUILD_MINIMAL=${{ inputs.BUILD_MINIMAL }} BUILD_DESKTOP=${{ inputs.BUILD_DESKTOP }} \
+            PREFER_DOCKER=${{ inputs.PREFER_DOCKER }} DOCKER_ARMBIAN_BASE_IMAGE=${{ inputs.DOCKER_ARMBIAN_BASE_IMAGE }} COMPRESS_OUTPUTIMAGE=xz KERNEL_CONFIGURE=no DEB_COMPRESS=xz
+
+      - name: Set current year and month
+        run: |
+          echo "CURRENT_YEAR_MONTH=$(date +'%Y%m')" >> $GITHUB_ENV
+
+      - name: Prepare Release Metadata
+        run: |
+          latest_image=$(ls ${{ github.workspace }}/build/output/images/Armbian_*.img.xz 2>/dev/null | sort -V | tail -n 1)
+          [ -z "$latest_image" ] && { echo "No image files found."; exit 1; }
+          echo "Latest image file: $latest_image"
+          VERSION=$(echo "$latest_image" | cut -d '_' -f 2)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Extracted VERSION: $VERSION"
+
+      - name: Upload Image to Release
+        if: success()
+        uses: ncipollo/release-action@main
+        with:
+          tag: "Armbian-${{ inputs.RELEASE }}-${{ env.CURRENT_YEAR_MONTH }}"
+          name: "Armbian-${{ inputs.RELEASE }}-${{ env.CURRENT_YEAR_MONTH }}"
+          artifacts: "${{ github.workspace }}/build/output/images/*"
+          allowUpdates: true
+          removeArtifacts: false
+          replacesArtifacts: true
+          token: ${{ secrets.GH_TOKEN }}
+          body: |
+            ### Armbian Image Information
+            - Release: ${{ inputs.RELEASE }}
+            - Version: ${{ env.VERSION }}
+          draft: false
+          prerelease: false
+
+      - name: Prepare Debs
+        run: |
+          cd "${GITHUB_WORKSPACE}/build/output/debs/"
+          file=$(find . -maxdepth 1 -type f -name 'linux-image-*.deb' | head -n 1)
+
+          if [ -n "$file" ]; then
+            echo "Found file: $file"
+            KERNEL_VERSION=$(echo "$file" | cut -d '_' -f 5 | cut -d '-' -f 1)
+            [[ ! "$KERNEL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && KERNEL_VERSION="${KERNEL_VERSION}.0"
+            echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
+            echo "Extracted KERNEL_VERSION: $KERNEL_VERSION"
+            BOARDFAMILY=$(echo "$file" | cut -d '-' -f 3 | cut -d '_' -f 1)
+            echo "BOARDFAMILY=$BOARDFAMILY" >> $GITHUB_ENV
+            echo "Extracted BOARDFAMILY: $BOARDFAMILY"
+
+          else
+            echo "No matching file found. Available files are:"
+            ls -1 "${GITHUB_WORKSPACE}/build/output/debs/"
+            exit 1
+          fi
+
+          tar -czf ../${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}_${KERNEL_VERSION}.tar.gz *
+          echo "Compressed matching files to ${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}_${KERNEL_VERSION}.tar.gz"
+          tar -tzf "../${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}_${KERNEL_VERSION}.tar.gz" || { echo "Failed to create valid tar.gz file"; exit 1; }
+
+      - name: Upload Debs Packages to Release
+        if: success()
+        uses: ncipollo/release-action@main
+        with:
+          tag: "Armbian-Debs"
+          name: "Armbian-Debs"
+          artifacts: "${{ github.workspace }}/build/output/${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}_${{ env.KERNEL_VERSION }}.tar.gz"
+          allowUpdates: true
+          removeArtifacts: false
+          replacesArtifacts: true
+          token: ${{ secrets.GH_TOKEN }}
+          body: |
+            ### Armbian Debs Packages
+            - Usage method: After unzipping, install the deb packages in order
+            - Packages include: armbian-bsp-cli | armbian-firmware | base-files | linux-dtb | linux-headers | linux-image | linux-libc-dev
+          draft: false
+          prerelease: false
+
+      - name: Prepare Kernel
+        run: |
+          cd "${GITHUB_WORKSPACE}/build/output/debs/"
+          matching_files_array=($(ls linux-dtb* linux-headers* linux-image* linux-libc* 2>/dev/null))
+
+          if [ ${#matching_files_array[@]} -gt 0 ]; then
+            tar -czf "../kernel-${KERNEL_VERSION}-${BOARDFAMILY}.tar.gz" "${matching_files_array[@]}"
+            echo "Compressed matching files to kernel-${KERNEL_VERSION}-${BOARDFAMILY}.tar.gz"
+          else
+            echo "No matching files found for compression."
+            exit 1
+          fi
+
+          tar -tzf "../kernel-${KERNEL_VERSION}-${BOARDFAMILY}.tar.gz" || { echo "Failed to create valid tar.gz file"; exit 1; }
+
+      - name: Upload Kernel Packages to Release
+        if: success()
+        uses: ncipollo/release-action@main
+        with:
+          tag: "Armbian-Kernel"
+          name: "Armbian-Kernel"
+          artifacts: "${{ github.workspace }}/build/output/kernel-${{ env.KERNEL_VERSION }}-${{ env.BOARDFAMILY }}.tar.gz"
+          allowUpdates: true
+          removeArtifacts: false
+          replacesArtifacts: true
+          token: ${{ secrets.GH_TOKEN }}
+          body: |
+            ### Armbian Kernel Packages
+            - Usage method: After unzipping, install the deb packages in order
+            - Packages include: linux-dtb | linux-headers | linux-image | linux-libc-dev
+          draft: false
+          prerelease: false
+
+      - name: Delete releases and workflows runs
+        uses: ophub/delete-releases-workflows@main
+        with:
+          delete_releases: true
+          releases_keep_latest: 10
+          delete_workflows: true
+          workflows_keep_day: 3
+          gh_token: ${{ secrets.GH_TOKEN }}
