@@ -116,7 +116,7 @@ jobs:
 
       - name: Set current year and month
         run: |
-          echo "CURRENT_YEAR_MONTH=$(date +'%Y%m')" >> $GITHUB_ENV
+          echo "CURRENT_YEAR_MONTH=$(date +'%Y.%m')" >> $GITHUB_ENV
 
       - name: Prepare Release Metadata
         run: |
