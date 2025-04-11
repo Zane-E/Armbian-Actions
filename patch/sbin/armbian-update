@@ -204,7 +204,7 @@ select_proxy() {
         eval "echo -e \"${SN} [\033[96m ${i} \033[0m] -> [\033[92m \${PROXY${i}} \033[0m]\""
     done
     while true; do
-        read -p "$(echo -e "${OPTIONS} 请输入序号 [1-3]: ")" proxy_choice
+        read -p "$(echo -e "${OPTIONS} 请输入序号 [\033[96m 1-3 \033[0m]: ")" proxy_choice
         case "${proxy_choice}" in
             1) PROXY_URL="https://${PROXY1}/"; break;;
             2) PROXY_URL="https://${PROXY2}/"; break;;
