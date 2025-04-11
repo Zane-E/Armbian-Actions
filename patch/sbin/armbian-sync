@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# 定义 GitHub 上的脚本文件路径和目标路径
+BASE_URL="https://raw.githubusercontent.com/Zane-E/Armbian-Actions/main/patch/sbin"
+TARGET_DIR="/usr/sbin"
+
+# 设置字体颜色
+STEPS="[\033[95m 步骤 \033[0m]"      # 步骤
+INFO="[\033[94m 信息 \033[0m]"       # 信息
+SUCCESS="[\033[92m 成功 \033[0m]"    # 成功
+ERROR="[\033[91m 错误 \033[0m]"      # 错误
+
+# 错误处理函数
+error() {
+    echo -e "${ERROR} ${1}"
+    exit 1
+}
+
+# 创建临时目录
+TEMP_DIR=$(mktemp -d) || error "创建临时目录失败！"
+
+# 确保临时目录在脚本结束时删除
+trap 'rm -rf "${TEMP_DIR}"' EXIT
+
+# GitHub API 获取文件列表（返回 JSON）
+API_URL="https://api.github.com/repos/Zane-E/Armbian-Actions/contents/patch/sbin"
+
+# 获取脚本文件的名称
+SCRIPT_NAME=$(basename "${0}")
+
+# 使用 curl 获取 JSON 文件列表
+echo -e "${STEPS} 正在获取文件列表..."
+FILES=$(curl -fsSL --retry 3 --retry-delay 1 --max-time 3 "${API_URL}" 2>/dev/null | jq -r --arg SCRIPT_NAME "${SCRIPT_NAME}" '.[] | select(.name != $SCRIPT_NAME) | .name') || error "获取文件列表失败！"
+
+# 检查文件列表是否为空
+[[ -z "${FILES}" ]] && error "文件列表为空！" || echo -e "${SUCCESS} 获取文件列表成功！"
+
+# 打印文件列表（逐个输出）
+# echo -e "${INFO} 文件列表："
+for SCRIPT in ${FILES}; do
+    echo -e "${INFO} 文件名: [\033[92m ${SCRIPT} \033[0m]"
+done
+
+# 确保目标目录存在
+if [[ ! -d "${TARGET_DIR}" ]]; then
+    echo -e "${ERROR} 目标目录 [\033[92m ${TARGET_DIR} \033[0m] 不存在！正在创建..."
+    mkdir -p "${TARGET_DIR}" || error "创建目标目录失败！"
+fi
+
+# 下载、设置执行权限并移动文件
+# echo -e "${INFO} 开始同步文件..."
+for SCRIPT in ${FILES}; do
+    SCRIPT_URL="${BASE_URL}/${SCRIPT}"
+    echo -e "${STEPS} 正在同步文件: [\033[92m ${SCRIPT} \033[0m]"
+    # 下载文件
+    curl -fsSL --retry 3 --retry-delay 1 --max-time 3 -o "${TEMP_DIR}/${SCRIPT}" "${SCRIPT_URL}" >/dev/null 2>&1 || error "下载失败: [\033[92m ${SCRIPT} \033[0m]"
+    # 设置执行权限
+    chmod +x "${TEMP_DIR}/${SCRIPT}" || error "设置权限失败: [\033[92m ${SCRIPT} \033[0m]"
+    # 移动到目标目录，覆盖原有文件
+    mv -f "${TEMP_DIR}/${SCRIPT}" "${TARGET_DIR}/" || error "移动失败: [\033[92m ${SCRIPT} \033[0m]"
+done
+
+echo -e "${SUCCESS} 文件同步完成！"

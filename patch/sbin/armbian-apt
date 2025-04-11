@@ -1,0 +1,227 @@
+#!/bin/bash
+
+# 定义文件路径
+source_file="/etc/apt/sources.list"
+source_backup_file="/etc/apt/sources.list.bak"
+
+debian_source_file="/etc/apt/sources.list.d/debian.sources"
+debian_source_backup_file="/etc/apt/sources.list.d/debian.sources.bak"
+
+ubuntu_source_file="/etc/apt/sources.list.d/ubuntu.sources"
+ubuntu_source_backup_file="/etc/apt/sources.list.d/ubuntu.sources.bak"
+
+# 获取固件信息
+release_file="/etc/os-release"
+
+# 设置字体颜色
+STEPS="[\033[95m 步骤 \033[0m]"      # 步骤
+INFO="[\033[94m 信息 \033[0m]"       # 信息
+SUCCESS="[\033[92m 成功 \033[0m]"    # 成功
+OPTIONS="[\033[93m 选项 \033[0m]"    # 选项
+ERROR="[\033[91m 错误 \033[0m]"      # 错误
+SN="[\033[96m 序号 \033[0m]"         # 序号
+
+# 错误处理
+error_msg() {
+    echo -e "${ERROR} ${1}"
+    exit 1
+}
+
+# 检查系统版本
+check_release() {
+    if [[ -f "${release_file}" ]]; then
+        source "${release_file}"
+        VERSION_CODEID="${ID}"
+        VERSION_CODENAME="${VERSION_CODENAME}"
+        [[ -z "${VERSION_CODEID}" ]] && error_msg "未检测到系统的 VERSION_CODEID！"
+        [[ -z "${VERSION_CODENAME}" ]] && error_msg "未检测到系统的 VERSION_CODENAME！"
+    else
+        error_msg "未检测到系统的 release 文件！"
+    fi
+}
+
+# 备份软件源列表
+backup_source_list() {
+    [[ -f "${source_file}" && ! -f "${source_backup_file}" ]] && {
+        cp -f "${source_file}" "${source_backup_file}"
+    }
+    [[ -f "${debian_source_file}" && ! -f "${debian_source_backup_file}" ]] && {
+        cp -f "${debian_source_file}" "${debian_source_backup_file}"
+    }
+    [[ -f "${ubuntu_source_file}" && ! -f "${ubuntu_source_backup_file}" ]] && {
+        cp -f "${ubuntu_source_file}" "${ubuntu_source_backup_file}"
+    }
+}
+
+# 更改系统的软件源
+change_source_list() {
+    echo -e "${STEPS} 开始更改系统软件源: [\033[92m ${MIRROR_URL} \033[0m]"
+    echo -e "${INFO} 系统版本: [\033[92m ${VERSION_CODENAME} \033[0m]"
+    case "${VERSION_CODENAME}" in
+    buster)
+        cat >${source_file} <<EOF
+        deb http://${MIRROR_URL}/debian ${VERSION_CODENAME} main contrib non-free
+        #deb-src http://${MIRROR_URL}/debian ${VERSION_CODENAME} main contrib non-free
+
+        deb http://${MIRROR_URL}/debian ${VERSION_CODENAME}-updates main contrib non-free
+        #deb-src http://${MIRROR_URL}/debian ${VERSION_CODENAME}-updates main contrib non-free
+
+        deb http://${MIRROR_URL}/debian-security ${VERSION_CODENAME}/updates main contrib non-free
+        #deb-src http://${MIRROR_URL}/debian-security ${VERSION_CODENAME}/updates main contrib non-free
+EOF
+        ;;
+
+    bullseye)
+        cat >${source_file} <<EOF
+        deb http://${MIRROR_URL}/debian ${VERSION_CODENAME} main contrib non-free
+        #deb-src http://${MIRROR_URL}/debian ${VERSION_CODENAME} main contrib non-free
+
+        deb http://${MIRROR_URL}/debian ${VERSION_CODENAME}-updates main contrib non-free
+        #deb-src http://${MIRROR_URL}/debian ${VERSION_CODENAME}-updates main contrib non-free
+
+        deb http://${MIRROR_URL}/debian ${VERSION_CODENAME}-backports main contrib non-free
+        #deb-src http://${MIRROR_URL}/debian ${VERSION_CODENAME}-backports main contrib non-free
+
+        deb http://${MIRROR_URL}/debian-security ${VERSION_CODENAME}-security main contrib non-free
+        #deb-src http://${MIRROR_URL}/debian-security ${VERSION_CODENAME}-security main contrib non-free
+EOF
+        ;;
+
+    bookworm | trixie)
+        # 从 bookworm 开始，非自由固件从 non-free 组件移动到 non-free-firmware 组件（与 main/contrib/non-free 并列）。
+        # 此更改在 2023-01-27 实施，详情请见 https://lists.debian.org/debian-boot/2023/01/msg00235.html
+        cat >${source_file} <<EOF
+        deb http://${MIRROR_URL}/debian ${VERSION_CODENAME} main contrib non-free non-free-firmware
+        #deb-src http://${MIRROR_URL}/debian ${VERSION_CODENAME} main contrib non-free non-free-firmware
+
+        deb http://${MIRROR_URL}/debian ${VERSION_CODENAME}-updates main contrib non-free non-free-firmware
+        #deb-src http://${MIRROR_URL}/debian ${VERSION_CODENAME}-updates main contrib non-free non-free-firmware
+
+        deb http://${MIRROR_URL}/debian ${VERSION_CODENAME}-backports main contrib non-free non-free-firmware
+        #deb-src http://${MIRROR_URL}/debian ${VERSION_CODENAME}-backports main contrib non-free non-free-firmware
+
+        deb http://${MIRROR_URL}/debian-security ${VERSION_CODENAME}-security main contrib non-free non-free-firmware
+        #deb-src http://${MIRROR_URL}/debian-security ${VERSION_CODENAME}-security main contrib non-free non-free-firmware
+EOF
+        ;;
+
+    focal | jammy | noble | oracular)
+        cat >${source_file} <<EOF
+        deb http://${MIRROR_URL}/ubuntu-ports ${VERSION_CODENAME} main restricted universe multiverse
+        #deb-src http://${MIRROR_URL}/ubuntu-ports ${VERSION_CODENAME} main restricted universe multiverse
+
+        deb http://${MIRROR_URL}/ubuntu-ports ${VERSION_CODENAME}-security main restricted universe multiverse
+        #deb-src http://${MIRROR_URL}/ubuntu-ports ${VERSION_CODENAME}-security main restricted universe multiverse
+
+        deb http://${MIRROR_URL}/ubuntu-ports ${VERSION_CODENAME}-updates main restricted universe multiverse
+        #deb-src http://${MIRROR_URL}/ubuntu-ports ${VERSION_CODENAME}-updates main restricted universe multiverse
+
+        deb http://${MIRROR_URL}/ubuntu-ports ${VERSION_CODENAME}-backports main restricted universe multiverse
+        #deb-src http://${MIRROR_URL}/ubuntu-ports ${VERSION_CODENAME}-backports main restricted universe multiverse
+EOF
+        ;;
+
+    sid | unstable)
+        # sid 是永久的非稳定开发版本，无更新或安全支持
+        cat >${source_file} <<EOF
+        deb http://${MIRROR_URL}/debian ${VERSION_CODENAME} main contrib non-free non-free-firmware
+        #deb-src http://${MIRROR_URL}/debian ${VERSION_CODENAME} main contrib non-free non-free-firmware
+EOF
+        ;;
+
+    *)
+        error_msg "未检测到系统版本: [ ${VERSION_CODENAME} ]"
+        ;;
+
+    esac
+
+    # 删除每行开头的空格
+    sed -i 's|^[ t]*||g' ${source_file}
+
+    if [ -f "${debian_source_file}" ]; then
+        if ! grep -q '^[^#]' "${debian_source_file}"; then
+            return 0
+        else
+            sed -i 's/^/#/' "${debian_source_file}"
+        fi
+    fi
+
+    if [ -f "${ubuntu_source_file}" ]; then
+        if ! grep -q '^[^#]' "${ubuntu_source_file}"; then
+            return 0
+        else
+            sed -i 's/^/#/' "${ubuntu_source_file}"
+        fi
+    fi
+
+    echo -e "${SUCCESS} 成功更改系统软件源。"
+}
+
+# 选择镜像站点
+select_mirror_site() {
+    source_id="${1}"
+    echo -e "${INFO} 您选择的源对应序号: [\033[92m ${source_id} \033[0m]"
+
+    case "${source_id}" in
+    0)
+        # 恢复默认源
+        if [[ -f "${source_backup_file}" ]]; then
+            cp -f "${source_backup_file}" "${source_file}"
+            if [[ ! -f "${debian_source_backup_file}" && ! -f "${ubuntu_source_backup_file}" ]]; then
+                echo -e "${SUCCESS} 成功恢复 [\033[92m ${VERSION_CODENAME} \033[0m] 默认源。"
+            fi
+        fi
+
+        if [[ -f "${debian_source_backup_file}" ]]; then
+            cp -f "${debian_source_backup_file}" "${debian_source_file}"
+            rm -f "${source_backup_file}" "${source_file}"
+            echo -e "${SUCCESS} 成功恢复 [\033[92m ${VERSION_CODENAME} \033[0m] 默认源。"
+        fi
+
+        if [[ -f "${ubuntu_source_backup_file}" ]]; then
+            cp -f "${ubuntu_source_backup_file}" "${ubuntu_source_file}"
+            rm -f "${source_backup_file}" "${source_file}"
+            echo -e "${SUCCESS} 成功恢复 [\033[92m ${VERSION_CODENAME} \033[0m] 默认源。"
+        fi
+        exit 0
+        ;;
+    1) MIRROR_URL="mirrors.ustc.edu.cn" ;;          # 中国科学技术大学
+    2) MIRROR_URL="mirrors.bfsu.edu.cn" ;;          # 北京外国语大学
+    3) MIRROR_URL="mirrors.tuna.tsinghua.edu.cn" ;; # 清华大学
+    4) MIRROR_URL="mirrors.aliyun.com" ;;           # 阿里云
+    esac
+
+    # 更改软件源列表
+    change_source_list
+}
+
+# 检查系统版本
+check_release
+
+# 备份软件源列表
+backup_source_list
+
+# 提示用户输入源对应数字
+echo -e "${INFO} 请选择适用于 [\033[92m ${VERSION_CODENAME} \033[0m] 的镜像软件源。"
+echo -e "${SN} [\033[96m 0 \033[0m] -> [\033[92m 恢复默认软件源 \033[0m]"
+echo -e "${SN} [\033[96m 1 \033[0m] -> [\033[92m 中国科学技术大学 \033[0m]"
+echo -e "${SN} [\033[96m 2 \033[0m] -> [\033[92m 北京外国语大学 \033[0m]"
+echo -e "${SN} [\033[96m 3 \033[0m] -> [\033[92m 清华大学 \033[0m]"
+echo -e "${SN} [\033[96m 4 \033[0m] -> [\033[92m 阿里云 \033[0m]"
+echo -e "${SN} [\033[96m 5 \033[0m] -> [\033[92m 退出 \033[0m]"
+
+while true; do
+    echo -ne "${OPTIONS} 请输入序号 [\033[96m 0-5 \033[0m]: "
+    read mwid
+    if [[ "${mwid}" =~ ^[0-9]+$ ]] && [[ "${mwid}" -ge 0 && "${mwid}" -le 5 ]]; then
+        if [[ "${mwid}" -eq 5 ]]; then
+            echo -e "${INFO} 已退出脚本。"
+            exit 0
+        else
+            select_mirror_site "${mwid}"
+            break
+        fi
+    else
+        echo -e "${ERROR} 无效选择，重新输入！"
+    fi
+done
