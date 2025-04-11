@@ -9,7 +9,7 @@ ERROR="[\033[91m 错误 \033[0m]"      # 错误
 VERSION="[\033[96m 版本 \033[0m]"    # 版本
 SN="[\033[96m 序号 \033[0m]"         # 序号
 
-# 获取固件信息
+# 固件信息文件
 release_file="/etc/armbian-release"
 
 # 定义版本列表
@@ -26,7 +26,7 @@ error() {
     exit 1
 }
 
-# 提取固件信息中的内核类型
+# 获取内核类型
 LINUXFAMILY=$(grep "^LINUXFAMILY=" ${release_file} | cut -d'=' -f2) || error "未能成功获取内核类型，请检查 /etc/armbian-release 文件。"
 [[ -z "${LINUXFAMILY}" ]] && error "内核类型为空，请检查 /etc/armbian-release 文件。"
 
@@ -100,6 +100,13 @@ uninstall_linux_libc_dev() {
     done
 }
 
+# 创建临时目录
+create_temp_dir() {
+    TEMP_DIR=$(mktemp -d)
+    [[ -d "$TEMP_DIR" ]] || error "无法创建临时目录。"
+    echo -e "${STEPS} 创建临时目录: [\033[92m ${TEMP_DIR} \033[0m]"
+}
+
 # 安装包
 install_package() {
     local pkg="${1}"
@@ -124,7 +131,7 @@ install_kernel_packages() {
     echo -e "${SUCCESS} 所有文件已安装！"
 }
 
-# 返回原始目录并删除临时目录
+# 删除临时目录
 cleanup_temp_dir() {
     cd - > /dev/null 2>&1
     rm -rf "${TEMP_DIR}"
@@ -153,17 +160,80 @@ reboot_system() {
     exit 0
 }
 
+# 检查目录文件并安装
+check_and_install_kernel() {
+    KERNEL_FILES=($(find . -maxdepth 1 -name "kernel-*-${LINUXFAMILY}.tar.gz" -exec basename {} \;))
+    if [[ ${#KERNEL_FILES[@]} -gt 0 ]]; then
+        if [[ ${#KERNEL_FILES[@]} -eq 1 ]]; then
+            KERNEL_FILE="${KERNEL_FILES[0]}"
+            echo -e "${INFO} 发现内核文件: [\033[92m ${KERNEL_FILE} \033[0m]"
+            read -p "$(echo -e "${OPTIONS} 是否安装内核？[Y/n]: ")" INSTALL_CHOICE
+            [[ ! "${INSTALL_CHOICE:-y}" =~ ^[Yy]$ ]] && { echo -e "${INFO} 您选择不安装。"; exit 0; }
+        else
+            echo -e "${INFO} 发现内核文件:"
+            for i in "${!KERNEL_FILES[@]}"; do
+                echo -e "${SN} [\033[96m $((i+1)) \033[0m] -> [\033[92m ${KERNEL_FILES[$i]} \033[0m]"
+            done
+            while true; do
+                read -p "$(echo -e "${OPTIONS} 请输入序号 [ \033[96m1-${#KERNEL_FILES[@]}\033[0m ]: ")" CHOICE
+                if [[ "$CHOICE" -ge 1 && "$CHOICE" -le ${#KERNEL_FILES[@]} ]]; then
+                    KERNEL_FILE="${KERNEL_FILES[$((CHOICE-1))]}"
+                    break
+                else
+                    echo -e "${ERROR} 选择无效，请重新输入！"
+                fi
+            done
+        fi
+        create_temp_dir
+        tar -xzf "${KERNEL_FILE}" -C "${TEMP_DIR}" || error "解压失败，请检查文件。"
+        echo -e "${SUCCESS} 解压文件完成！"
+        cd "${TEMP_DIR}" || error "无法进入临时目录：${TEMP_DIR}"
+        uninstall_linux_libc_dev
+        install_kernel_packages
+        cleanup_temp_dir
+        read -p "$(echo -e "${OPTIONS} 是否删除内核文件？[Y/n]: ")" DELETE_CHOICE
+        DELETE_CHOICE=${DELETE_CHOICE:-y}
+        [[ "${DELETE_CHOICE}" =~ ^[Yy]$ ]] && rm -rf kernel-*-${LINUXFAMILY}.tar.gz
+        reboot_system
+    fi
+}
+
+select_proxy() {
+    echo -e "${INFO} 请选择代理加速站："
+    for i in {1..3}; do
+        eval "echo -e \"${SN} [\033[96m ${i} \033[0m] -> [\033[92m \${PROXY${i}} \033[0m]\""
+    done
+    while true; do
+        read -p "$(echo -e "${OPTIONS} 请输入序号 [1-3]: ")" proxy_choice
+        case "${proxy_choice}" in
+            1) PROXY_URL="https://${PROXY1}/"; break;;
+            2) PROXY_URL="https://${PROXY2}/"; break;;
+            3) PROXY_URL="https://${PROXY3}/"; break;;
+            *) echo -e "${INFO} 无效选择，重新输入！";;
+        esac
+    done
+}
+
+# 定义下载内核包
+download_kernel_package() {
+    DOWNLOAD_URL="${PROXY_URL}https://github.com/Zane-E/Armbian-Actions/releases/download/Armbian-Kernel/kernel-${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz"
+    cd "${TEMP_DIR}" || exit
+    echo -e "${STEPS} 正在下载文件: [\033[92m ${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz \033[0m]"
+    wget -q -O "${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" "${DOWNLOAD_URL}" >/dev/null 2>&1 || error "下载失败，请检查版本号或网络连接。"
+    echo -e "${SUCCESS} 下载完成！"
+}
+
 OPTERR=0
 while getopts "k:lh" opt; do
     case ${opt} in
-        k) validate_version_format "${OPTARG}" || exit 1; KERNEL_VERSION="${OPTARG}" ;;
+        k) validate_version_format "${OPTARG}" || exit 1; KERNEL_VERSION="${OPTARG}"; SKIP_KERNEL_CHECK=true ;;
         l) SHOW_VERSIONS=true ;;
         h) usage ;;
         *) usage ;;
     esac
 done
 
-# 选择 -l 参数，则显示所有同系列内核版本并退出
+# -l 参数，则显示同系列内核版本列表
 [[ "${SHOW_VERSIONS}" == true ]] && { list_all_versions; exit 0; }
 
 # 显示内核类型
@@ -173,43 +243,8 @@ echo -e "${INFO} 系统内核类型: [\033[92m ${LINUXFAMILY} \033[0m]"
 CURRENT_KERNEL=$(uname -r | cut -d'-' -f1)
 echo -e "${INFO} 当前内核版本: [\033[92m ${CURRENT_KERNEL} \033[0m]"
 
-# 检查当前目录是否已有内核文件
-KERNEL_FILES=($(find . -maxdepth 1 -name "kernel-*-${LINUXFAMILY}.tar.gz" -exec basename {} \;))
-if [[ ${#KERNEL_FILES[@]} -gt 0 ]]; then
-    if [[ ${#KERNEL_FILES[@]} -eq 1 ]]; then
-        KERNEL_FILE="${KERNEL_FILES[0]}"
-        echo -e "${INFO} 发现内核文件: [\033[92m ${KERNEL_FILE} \033[0m]"
-        read -p "$(echo -e "${OPTIONS} 是否安装内核？[Y/n]: ")" INSTALL_CHOICE
-        [[ ! "${INSTALL_CHOICE:-y}" =~ ^[Yy]$ ]] && { echo -e "${INFO} 您选择不安装。"; exit 0; }
-    else
-        echo -e "${INFO} 发现内核文件:"
-        for i in "${!KERNEL_FILES[@]}"; do
-            echo -e "${SN} [\033[96m $((i+1)) \033[0m] -> [\033[92m ${KERNEL_FILES[$i]} \033[0m]"
-        done
-        while true; do
-            read -p "$(echo -e "${OPTIONS} 请选择要安装的内核文件 [1-${#KERNEL_FILES[@]}]: ")" CHOICE
-            if [[ "$CHOICE" -ge 1 && "$CHOICE" -le ${#KERNEL_FILES[@]} ]]; then
-                KERNEL_FILE="${KERNEL_FILES[$((CHOICE-1))]}"
-                break
-            else
-                echo -e "${ERROR} 选择无效，请重新输入！"
-            fi
-        done
-    fi
-    TEMP_DIR=$(mktemp -d)
-    [[ -d "$TEMP_DIR" ]] || error "无法创建临时目录。"
-    echo -e "${STEPS} 创建临时目录: [\033[92m ${TEMP_DIR} \033[0m]"
-    tar -xzf "${KERNEL_FILE}" -C "${TEMP_DIR}" || error "解压失败，请检查文件。"
-    echo -e "${SUCCESS} 解压文件完成！"
-    cd "${TEMP_DIR}" || error "无法进入临时目录：${TEMP_DIR}"
-    uninstall_linux_libc_dev
-    install_kernel_packages
-    cleanup_temp_dir
-    read -p "$(echo -e "${OPTIONS} 是否删除内核文件？[Y/n]: ")" DELETE_CHOICE
-    DELETE_CHOICE=${DELETE_CHOICE:-y}
-    [[ "${DELETE_CHOICE}" =~ ^[Yy]$ ]] && rm -rf kernel-*-${LINUXFAMILY}.tar.gz
-    reboot_system
-fi
+# -k 参数，则不检查目录文件
+[[ "${SKIP_KERNEL_CHECK}" != true ]] && check_and_install_kernel
 
 # 获取/处理内核版本
 if [[ -z "${KERNEL_VERSION}" ]]; then
@@ -230,51 +265,25 @@ fi
 # 选择是否使用代理下载
 read -p "$(echo -e "${OPTIONS} 是否使用代理下载？[y/N]: ")" USE_PROXY
 USE_PROXY=${USE_PROXY:-n}
-
-# 根据选择设置代理链接
-if [[ "${USE_PROXY}" =~ ^[Yy]$ ]]; then
-    echo -e "${INFO} 请选择代理加速站："
-    echo -e "${SN} [\033[96m 1 \033[0m] -> [\033[92m ${PROXY1} \033[0m]"
-    echo -e "${SN} [\033[96m 2 \033[0m] -> [\033[92m ${PROXY2} \033[0m]"
-    echo -e "${SN} [\033[96m 3 \033[0m] -> [\033[92m ${PROXY3} \033[0m]"
-  while true; do
-    read -p "$(echo -e "${OPTIONS} 请输入序号 [\033[96m 1 2 3 \033[0m]: ")" proxy_choice
-    case "${proxy_choice}" in
-        1) PROXY_URL="https://${PROXY1}/"; break;;
-        2) PROXY_URL="https://${PROXY2}/"; break;;
-        3) PROXY_URL="https://${PROXY3}/"; break;;
-        *) echo -e "${INFO} 无效选择，重新输入！";;
-    esac
-  done
-else
-  PROXY_URL=""
-fi
+[[ "${USE_PROXY}" =~ ^[Yy]$ ]] && select_proxy || PROXY_URL=""
 
 # 创建临时目录
-TEMP_DIR=$(mktemp -d)
-[[ -d "$TEMP_DIR" ]] || error "无法创建临时目录。"
-echo -e "${STEPS} 创建临时目录: [\033[92m ${TEMP_DIR} \033[0m]"
+create_temp_dir
 
-# 生成下载链接
-DOWNLOAD_URL="${PROXY_URL}https://github.com/Zane-E/Armbian-Actions/releases/download/Armbian-Kernel/kernel-${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz"
+# 下载内核包
+download_kernel_package
 
-# 下载文件
-cd "${TEMP_DIR}" || exit
-echo -e "${STEPS} 正在下载文件: [\033[92m ${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz \033[0m]"
-wget -q -O "${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" "${DOWNLOAD_URL}" >/dev/null 2>&1 || error "下载失败，请检查版本号或网络连接。"
-echo -e "${SUCCESS} 下载完成！"
-
-# 解压下载的文件
+# 解压文件
 tar -xzf "${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" || error "解压失败，请检查压缩文件。"
 echo -e "${SUCCESS} 解压完成！"
 
 # 检查卸载冲突包
 uninstall_linux_libc_dev
 
-# 安装文件
+# 安装内核文件
 install_kernel_packages
 
-# 返回原始目录并删除临时目录
+# 删除临时目录
 cleanup_temp_dir
 
 # 提示重启系统
