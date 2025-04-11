@@ -214,13 +214,15 @@ select_proxy() {
     done
 }
 
-# 定义下载内核包
+# 下载解压内核包
 download_kernel_package() {
     DOWNLOAD_URL="${PROXY_URL}https://github.com/Zane-E/Armbian-Actions/releases/download/Armbian-Kernel/kernel-${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz"
     cd "${TEMP_DIR}" || exit
     echo -e "${STEPS} 正在下载文件: [\033[92m ${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz \033[0m]"
     wget -q -O "${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" "${DOWNLOAD_URL}" >/dev/null 2>&1 || error "下载失败，请检查版本号或网络连接。"
     echo -e "${SUCCESS} 下载完成！"
+	tar -xzf "${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" || error "解压失败，请检查压缩文件。"
+	echo -e "${SUCCESS} 解压完成！"
 }
 
 OPTERR=0
@@ -270,12 +272,8 @@ USE_PROXY=${USE_PROXY:-n}
 # 创建临时目录
 create_temp_dir
 
-# 下载内核包
+# 下载解压内核包
 download_kernel_package
-
-# 解压文件
-tar -xzf "${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" || error "解压失败，请检查压缩文件。"
-echo -e "${SUCCESS} 解压完成！"
 
 # 检查卸载冲突包
 uninstall_linux_libc_dev
