@@ -221,8 +221,8 @@ download_kernel_package() {
     echo -e "${STEPS} 正在下载文件: [\033[92m ${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz \033[0m]"
     wget -q -O "${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" "${DOWNLOAD_URL}" >/dev/null 2>&1 || error "下载失败，请检查版本号或网络连接。"
     echo -e "${SUCCESS} 下载完成！"
-	tar -xzf "${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" || error "解压失败，请检查压缩文件。"
-	echo -e "${SUCCESS} 解压完成！"
+    tar -xzf "${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" || error "解压失败，请检查压缩文件。"
+    echo -e "${SUCCESS} 解压完成！"
 }
 
 OPTERR=0
