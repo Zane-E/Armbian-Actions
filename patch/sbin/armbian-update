@@ -15,10 +15,8 @@ release_file="/etc/armbian-release"
 # 定义版本列表
 VERSION_PREFIXES="6.1 6.12 6.14 6.15"
 
-# 代理加速网站
-PROXY1="gh-proxy.com"
-PROXY2="ghproxy.cn"
-PROXY3="ghfast.top"
+# 定义代理加速
+PROXIES=("gh-proxy.com" "ghproxy.cn" "ghfast.top")
 
 # 错误处理
 error() {
@@ -198,20 +196,20 @@ check_and_install_kernel() {
     fi
 }
 
+# 随机选择代理
 select_proxy() {
-    echo -e "${INFO} 请选择代理加速站："
-    for i in {1..3}; do
-        eval "echo -e \"${SN} [\033[96m ${i} \033[0m] -> [\033[92m \${PROXY${i}} \033[0m]\""
+    shuffled_indices=($(shuf -i 0-2 -n 3))
+    for i in "${shuffled_indices[@]}"; do
+        RANDOM_PROXY_URL="https://${PROXIES[$i]}/"
+        echo -e "${INFO} 尝试代理加速：[\033[92m ${PROXIES[$i]} \033[0m]"
+        if curl -L -s --head --request GET "${RANDOM_PROXY_URL}" | grep "HTTP/" | grep -E "200" > /dev/null; then
+            PROXY_URL="${RANDOM_PROXY_URL}"
+            echo -e "${SUCCESS} 代理加速可用！"
+            return 0
+        fi
     done
-    while true; do
-        read -p "$(echo -e "${OPTIONS} 请输入序号 [\033[96m 1-3 \033[0m]: ")" proxy_choice
-        case "${proxy_choice}" in
-            1) PROXY_URL="https://${PROXY1}/"; break;;
-            2) PROXY_URL="https://${PROXY2}/"; break;;
-            3) PROXY_URL="https://${PROXY3}/"; break;;
-            *) echo -e "${INFO} 无效选择，重新输入！";;
-        esac
-    done
+    echo -e "${ERROR} 代理加速均失效，使用直连。"
+    PROXY_URL=""
 }
 
 # 下载解压内核包
