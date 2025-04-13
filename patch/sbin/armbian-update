@@ -208,8 +208,11 @@ select_proxy() {
             return 0
         fi
     done
-    echo -e "${ERROR} 代理加速均失效，使用直连。"
+    read -p "$(echo -e "${OPTIONS} 代理加速均失效，是否使用直连下载？[Y/n]: ")" USE_direct
+    USE_direct=${USE_direct:-Y}
+    [[ "${USE_direct}" =~ ^[Nn]$ ]] && exit 0
     PROXY_URL=""
+    echo -e "${INFO} 使用直连下载！"
 }
 
 # 下载解压内核包
