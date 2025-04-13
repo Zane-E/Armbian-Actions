@@ -208,9 +208,10 @@ select_proxy() {
             return 0
         fi
     done
-    read -p "$(echo -e "${OPTIONS} 代理加速均失效，是否使用直连下载？[Y/n]: ")" USE_direct
+    echo -e "${ERROR} 代理加速失效！"
+    read -p "$(echo -e "${OPTIONS} 是否尝试直连？[Y/n]: ")" USE_direct
     USE_direct=${USE_direct:-Y}
-    [[ "${USE_direct}" =~ ^[Nn]$ ]] && exit 0
+    [[ "${USE_direct}" =~ ^[Nn]$ ]] && { echo -e "${INFO} 放弃尝试，退出脚本！"; exit 0; }
     PROXY_URL=""
     echo -e "${INFO} 使用直连下载！"
 }
