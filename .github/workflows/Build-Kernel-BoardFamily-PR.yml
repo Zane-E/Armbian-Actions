@@ -63,7 +63,7 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git fetch origin pull/${{ inputs.PR }}/head:pr-branch
-          git merge pr-branch --no-ff --strategy=theirs -m "Merge PR #${{ inputs.PR }} into main"
+          git merge pr-branch --no-ff --strategy=recursive -X theirs -m "Merge PR #${{ inputs.PR }} into main"
 
       - name: Apply patches
         run: |
