@@ -81,6 +81,7 @@ jobs:
           cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-1.patch patch/kernel/archive/meson64-6.15/
           cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-2.patch patch/kernel/archive/meson64-6.15/
           cp -f $GITHUB_WORKSPACE/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-6.15/dt/
+          cp -f patch/kernel/archive/rockchip64-6.14/overlay/rockchip-sakurapi-rk3308b-ws2812.dtso patch/kernel/archive/rockchip64-6.15/overlay/rockchip-sakurapi-rk3308b-ws2812.dtso
           ls -la
 
       - name: Compile Kernel [ ${{ inputs.BOARD }} ${{ inputs.BRANCH }} ]
