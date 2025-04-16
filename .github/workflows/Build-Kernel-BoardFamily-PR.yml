@@ -70,18 +70,18 @@ jobs:
           cd $GITHUB_WORKSPACE/build
           chmod +x $GITHUB_WORKSPACE/scripts/apply_patches.sh
           $GITHUB_WORKSPACE/scripts/apply_patches.sh
-          sed -i 's/tag:v6\.15-rc1/tag:v6\.15-rc2/' config/sources/mainline-kernel.conf.sh
-          sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|' lib/functions/configuration/main-config.sh
-          sed -i 's/6\.1-rkr5/6\.1-rkr5\.1/g' patch/kernel/rk35xx-vendor-6.1/0000.patching_config.yaml
-          sed -i 's/v6\.1\.99/v6\.1\.115/g' patch/kernel/rk35xx-vendor-6.1/0000.patching_config.yaml
-          sed -i 's/6\.1-rkr5/6\.1-rkr5\.1/g' config/sources/families/rk35xx.conf
-          sed -i 's/6\.1-rkr5/6\.1-rkr5\.1/g' config/sources/families/rockchip-rk3588.conf
-          cp -f $GITHUB_WORKSPACE/patch/T4/fix-CPU-information.patch patch/kernel/archive/rockchip64-6.15/
-          cp -f $GITHUB_WORKSPACE/patch/T4/t4.patch patch/kernel/archive/rockchip64-6.15/
-          cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-1.patch patch/kernel/archive/meson64-6.15/
-          cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-2.patch patch/kernel/archive/meson64-6.15/
-          cp -f $GITHUB_WORKSPACE/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-6.15/dt/
-          cp -f patch/kernel/archive/rockchip64-6.14/overlay/rockchip-sakurapi-rk3308b-ws2812.dtso patch/kernel/archive/rockchip64-6.15/overlay/rockchip-sakurapi-rk3308b-ws2812.dtso
+          # sed -i 's/tag:v6\.15-rc1/tag:v6\.15-rc2/' config/sources/mainline-kernel.conf.sh
+          # sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|' lib/functions/configuration/main-config.sh
+          # sed -i 's/6\.1-rkr5/6\.1-rkr5\.1/g' patch/kernel/rk35xx-vendor-6.1/0000.patching_config.yaml
+          # sed -i 's/v6\.1\.99/v6\.1\.115/g' patch/kernel/rk35xx-vendor-6.1/0000.patching_config.yaml
+          # sed -i 's/6\.1-rkr5/6\.1-rkr5\.1/g' config/sources/families/rk35xx.conf
+          # sed -i 's/6\.1-rkr5/6\.1-rkr5\.1/g' config/sources/families/rockchip-rk3588.conf
+          # cp -f $GITHUB_WORKSPACE/patch/T4/fix-CPU-information.patch patch/kernel/archive/rockchip64-6.15/
+          # cp -f $GITHUB_WORKSPACE/patch/T4/t4.patch patch/kernel/archive/rockchip64-6.15/
+          # cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-1.patch patch/kernel/archive/meson64-6.15/
+          # cp -f $GITHUB_WORKSPACE/patch/N1/fix-n1-2.patch patch/kernel/archive/meson64-6.15/
+          # cp -f $GITHUB_WORKSPACE/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-6.15/dt/
+          # cp -f patch/kernel/archive/rockchip64-6.14/overlay/rockchip-sakurapi-rk3308b-ws2812.dtso patch/kernel/archive/rockchip64-6.15/overlay/rockchip-sakurapi-rk3308b-ws2812.dtso
           ls -la
 
       - name: Compile Kernel [ ${{ inputs.BOARD }} ${{ inputs.BRANCH }} ]
