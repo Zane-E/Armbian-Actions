@@ -191,7 +191,7 @@ check_and_install_kernel() {
         cleanup_temp_dir
         read -p "$(echo -e "${OPTIONS} 是否删除内核文件？[Y/n]: ")" DELETE_CHOICE
         DELETE_CHOICE=${DELETE_CHOICE:-y}
-        [[ "${DELETE_CHOICE}" =~ ^[Yy]$ ]] && rm -rf "${KERNEL_FILE}"
+        [[ "${DELETE_CHOICE}" =~ ^[Yy]$ ]] && rm -f "${KERNEL_FILE}"
         reboot_system
     fi
 }
