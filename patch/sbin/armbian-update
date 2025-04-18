@@ -173,7 +173,7 @@ check_and_install_kernel() {
                 echo -e "${SN} [\033[96m $((i+1)) \033[0m] -> [\033[92m ${KERNEL_FILES[$i]} \033[0m]"
             done
             while true; do
-                read -p "$(echo -e "${OPTIONS} 请输入序号 [ \033[96m1-${#KERNEL_FILES[@]}\033[0m ]: ")" CHOICE
+                read -p "$(echo -e "${OPTIONS} 请输入序号 [\033[96m 1-${#KERNEL_FILES[@]} \033[0m]: ")" CHOICE
                 if [[ "$CHOICE" -ge 1 && "$CHOICE" -le ${#KERNEL_FILES[@]} ]]; then
                     KERNEL_FILE="${KERNEL_FILES[$((CHOICE-1))]}"
                     break
@@ -191,7 +191,7 @@ check_and_install_kernel() {
         cleanup_temp_dir
         read -p "$(echo -e "${OPTIONS} 是否删除内核文件？[Y/n]: ")" DELETE_CHOICE
         DELETE_CHOICE=${DELETE_CHOICE:-y}
-        [[ "${DELETE_CHOICE}" =~ ^[Yy]$ ]] && rm -rf kernel-*-${LINUXFAMILY}.tar.gz
+        [[ "${DELETE_CHOICE}" =~ ^[Yy]$ ]] && rm -rf "${KERNEL_FILE}"
         reboot_system
     fi
 }
