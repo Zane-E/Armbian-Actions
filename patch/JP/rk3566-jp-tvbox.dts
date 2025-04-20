@@ -738,6 +738,43 @@
   *	L:VCCIO2 must supply 3.3V
   *	H:VCCIO2 must supply 1.8V
   */
+
+&cpu0_opp_table {
+	opp-1992000000 {
+		opp-supported-hw = <0xf9 0xffff>;
+		opp-hz = /bits/ 64 <1992000000>;
+		opp-microvolt = <1150000 1150000 1150000>;
+		opp-microvolt-L0 = <1150000 1150000 1150000>;
+		opp-microvolt-L1 = <1150000 1150000 1150000>;
+		opp-microvolt-L2 = <1125000 1125000 1150000>;
+		opp-microvolt-L3 = <1100000 1100000 1150000>;
+		clock-latency-ns = <40000>;
+	};
+
+	/* RK3568J cpu OPPs */
+	opp-j-1008000000 {
+		opp-supported-hw = <0x04 0xffff>;
+		opp-hz = /bits/ 64 <1008000000>;
+		opp-microvolt = <850000 850000 1150000>;
+		clock-latency-ns = <40000>;
+	};
+
+	opp-j-1416000000 {
+		opp-supported-hw = <0x04 0xffff>;
+		opp-hz = /bits/ 64 <1416000000>;
+		opp-microvolt = <900000 900000 1150000>;
+		clock-latency-ns = <40000>;
+	};
+
+	/* RK3568M cpu OPPs */
+	opp-m-1608000000 {
+		opp-supported-hw = <0x02 0xffff>;
+		opp-hz = /bits/ 64 <1608000000>;
+		opp-microvolt = <1000000 1000000 1150000>;
+		clock-latency-ns = <40000>;
+	};
+};
+
 &pmu_io_domains {
 	status = "okay";
 	pmuio2-supply = <&vcc3v3_pmu>;
