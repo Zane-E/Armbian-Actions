@@ -1,4 +1,4 @@
-name: Build-Kernel-BoardFamily-New
+name: Build-Kernel-BoardFamily
 
 on:
   workflow_dispatch:
