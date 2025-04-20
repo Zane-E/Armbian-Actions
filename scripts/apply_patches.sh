@@ -38,6 +38,12 @@ cp -r $GITHUB_WORKSPACE/patch/X2/dt patch/kernel/rk35xx-vendor-6.1/
 cp -f $GITHUB_WORKSPACE/patch/X2/panther-x2.csc config/boards/
 mv -f config/boards/panther-x2.csc config/boards/panther-x2.conf
 
+# JP Patches
+echo "Copying JP patches..."
+cp -f $GITHUB_WORKSPACE/patch/JP/rk3566-jp-tvbox.dts patch/kernel/rk35xx-vendor-6.1/dt/
+cp -f $GITHUB_WORKSPACE/patch/JP/jp-tvbox-3566.tvb config/boards/
+mv -f config/boards/jp-tvbox-3566.tvb config/boards/jp-tvbox-3566.conf
+
 # onecloud
 mv -f config/boards/onecloud.csc config/boards/onecloud.conf
 
