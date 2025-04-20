@@ -14,6 +14,7 @@ on:
           - 'panther-x2'
           - 'aml-s9xx-box'
           - 'radxa-cubie-a5e'
+          - 'jp-tvbox-3566'
           - 'onecloud'
       BRANCH:
         description: 'Armbian branch'
