@@ -11,7 +11,12 @@ on:
         options:
           - 'nanopct4'
           - 'rock-5c'
+          - 'panther-x2'
           - 'aml-s9xx-box'
+          - 'radxa-cubie-a5e'
+          - 'jp-tvbox'
+          - 'nanopi-r3s'
+          - 'onecloud'
       BRANCH:
         description: 'Armbian branch'
         default: 'current'
