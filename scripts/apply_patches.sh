@@ -79,4 +79,7 @@ sed -i 's/1800000/1992000/g' config/sources/families/include/rockchip64_common.i
 # Set custom version
 echo "25.8.1" > VERSION
 
+# Fix
+sed -i '31i mkdir -p /armbian/cache' lib/functions/general/chroot-helpers.sh
+
 echo "Patches applied successfully."
