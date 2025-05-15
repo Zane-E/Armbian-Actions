@@ -77,6 +77,6 @@ sed -i 's/IMAGE_TYPE=user-built/IMAGE_TYPE=stable/g' lib/functions/main/config-p
 sed -i 's/1800000/1992000/g' config/sources/families/include/rockchip64_common.inc
 
 # Set custom version
-echo "25.5.1" > VERSION
+echo "25.8.1" > VERSION
 
 echo "Patches applied successfully."
