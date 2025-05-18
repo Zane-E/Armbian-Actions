@@ -1,0 +1,290 @@
+#!/bin/bash
+
+# 设置字体颜色
+STEPS="[\033[95m 步骤 \033[0m]"      # 步骤
+INFO="[\033[94m 信息 \033[0m]"       # 信息
+SUCCESS="[\033[92m 成功 \033[0m]"    # 成功
+OPTIONS="[\033[93m 选项 \033[0m]"    # 选项
+ERROR="[\033[91m 错误 \033[0m]"      # 错误
+VERSION="[\033[96m 版本 \033[0m]"    # 版本
+SN="[\033[96m 序号 \033[0m]"         # 序号
+
+# 固件信息文件
+release_file="/etc/armbian-release"
+
+# 定义版本列表
+VERSION_PREFIXES="6.1 6.12 6.14 6.15"
+
+# 定义代理加速
+PROXIES=("gh-proxy.com" "ghproxy.cn" "ghfast.top")
+
+# 错误处理
+error() {
+    echo -e "${ERROR} ${1}"
+    exit 1
+}
+
+# 获取内核类型
+LINUXFAMILY=$(grep "^LINUXFAMILY=" ${release_file} | cut -d'=' -f2) || error "未能成功获取内核类型，请检查 /etc/armbian-release 文件。"
+[[ -z "${LINUXFAMILY}" ]] && error "内核类型为空，请检查 /etc/armbian-release 文件。"
+
+# 显示用法
+usage() {
+    echo -e "${INFO} 使用方法: [-k] [-l] [-h]"
+    echo -e "${INFO} 参数说明:"
+    echo -e "${INFO}   -k <version>  指定要安装的内核版本，格式为 x.y.z"
+    echo -e "${INFO}   -l            显示仓库内核版本列表（前五）"
+    echo -e "${INFO}   -h            显示此帮助信息"
+    exit 0
+}
+
+# 验证版本号格式
+validate_version_format() {
+    [[ "${1}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || error "版本号格式不正确：[\033[92m ${1} \033[0m]，请使用 x.y.z 的格式，例如 6.6.66"
+    return 0
+}
+
+# 获取仓库最新同系列内核版本
+get_latest_version() {
+    CURRENT_MAJOR_MINOR=$(echo "${CURRENT_KERNEL}" | grep -oP '^[0-9]+\.[0-9]+')
+    versions=$(curl -fsSL --retry 3 --retry-delay 1 --max-time 3 "https://github.com/Zane-E/Armbian-Actions/releases/expanded_assets/Kernel-${LINUXFAMILY}" 2>/dev/null) || error "无法访问 GITHUB，检查网络连接。"
+    filtered_versions=$(echo "${versions}" | grep -oP '>kernel-\K[0-9]+\.[0-9]+\.[0-9]+-('"${LINUXFAMILY}"')\.tar\.gz<' | grep "^${CURRENT_MAJOR_MINOR}\.")
+    [[ -z "${filtered_versions}" ]] && error "未找到与当前内核版本相同系列的内核。"
+    echo "${filtered_versions}" | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n 1
+}
+
+# 列出同Board系列内核版本（前五）
+list_all_versions() {
+    versions=$(curl -fsSL --retry 3 --retry-delay 1 --max-time 3 "https://github.com/Zane-E/Armbian-Actions/releases/expanded_assets/Kernel-${LINUXFAMILY}" 2>/dev/null) || error "无法访问 GITHUB，检查网络连接。"
+    filtered_versions=$(echo "${versions}" | grep -oP '>kernel-\K[0-9]+\.[0-9]+\.[0-9]+-('"${LINUXFAMILY}"')\.tar\.gz<')
+    [[ -z "${filtered_versions}" ]] && error "未找到相同系列的内核版本。"
+    all_versions=$(echo "${filtered_versions}" | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | sort -Vr)
+    [[ -z "${all_versions}" ]] && error "无法列出同系列内核版本。"
+    columns=()
+    for version_prefix in ${VERSION_PREFIXES}; do
+        column=$(echo "${all_versions}" | grep "^${version_prefix}\." | head -n 5)
+        [[ -n "${column}" ]] && columns+=("${column}")
+    done
+    max_width=0
+    for column in "${columns[@]}"; do
+        for version in ${column}; do
+            (( ${#version} > max_width )) && max_width=${#version}
+        done
+    done
+    max_lines=0
+    for column in "${columns[@]}"; do
+        num_lines=$(wc -l <<< "${column}")
+        (( num_lines > max_lines )) && max_lines=$num_lines
+    done
+    for i in $(seq 1 "${max_lines}"); do
+        printf "${VERSION}"
+        for column in "${columns[@]}"; do
+            version=$(sed -n "${i}p" <<< "${column}")
+            printf "\033[92m %-${max_width}s\033[0m" "${version:-}"
+        done
+        echo
+    done
+}
+
+# 检查卸载冲突包
+uninstall_linux_libc_dev() {
+    local ARCH_LIST=("arm64" "armhf")
+    for ARCH in "${ARCH_LIST[@]}"; do
+        if dpkg-query -W -f='${Status}' linux-libc-dev:$ARCH 2>/dev/null | grep -q "installed"; then
+            echo -e "${INFO} 检测到已安装: [\033[92m linux-libc-dev:$ARCH \033[0m]"
+            echo -e "${STEPS} 正在卸载..."
+            apt-get remove -y linux-libc-dev:$ARCH >/dev/null 2>&1 || exit 1
+        fi
+    done
+}
+
+# 创建临时目录
+create_temp_dir() {
+    TEMP_DIR=$(mktemp -d)
+    [[ -d "$TEMP_DIR" ]] || error "无法创建临时目录。"
+    echo -e "${STEPS} 创建临时目录: [\033[92m ${TEMP_DIR} \033[0m]"
+}
+
+# 安装包
+install_package() {
+    local pkg="${1}"
+    DEB_FILE=$(ls ${pkg}*.deb 2>/dev/null)
+    [[ -z "${DEB_FILE}" ]] && error "未找到 [\033[92m ${pkg}*.deb \033[0m] 文件。"
+    dpkg -i "${DEB_FILE}" >/dev/null 2>&1 || {
+        echo -e "${ERROR} 安装失败！"
+        echo -e "${STEPS} 正在修复依赖..."
+        apt-get update >/dev/null 2>&1 && apt-get -f install -y >/dev/null 2>&1 || error "修复依赖失败，请检查相关依赖和文件是否存在。"
+        echo -e "${SUCCESS} 依赖修复成功！"
+        echo -e "${STEPS} 重新安装: [\033[92m ${pkg} \033[0m]"
+        dpkg -i "${DEB_FILE}" >/dev/null 2>&1 || error "重新安装 [\033[92m ${pkg} \033[0m] 失败！"
+    }
+}
+
+# 安装内核包
+install_kernel_packages() {
+    for pkg in linux-libc-dev linux-headers linux-image linux-dtb; do
+        echo -e "${STEPS} 正在安装: [\033[92m ${pkg} \033[0m]"
+        install_package "${pkg}" || exit 1
+    done
+    echo -e "${SUCCESS} 所有文件已安装！"
+}
+
+# 删除临时目录
+cleanup_temp_dir() {
+    cd - > /dev/null 2>&1
+    rm -rf "${TEMP_DIR}"
+    echo -e "${SUCCESS} 临时目录已删除！"
+}
+
+# 提示重启系统
+reboot_system() {
+    read -p "$(echo -e "${OPTIONS} 是否立即重启系统？[Y/n]: ")" REBOOT_CHOICE
+    REBOOT_CHOICE=${REBOOT_CHOICE:-y}
+    if [[ "${REBOOT_CHOICE}" =~ ^[Yy]$ ]]; then
+        # echo -e "${INFO} 系统将在 5 秒后重启，按 Ctrl+C 取消重启。"
+        for ((i=5; i>=0; i--)); do
+            echo -ne "${STEPS} 倒计时: [ "
+            for ((j=5; j>i; j--)); do echo -ne "\e[31m=\e[0m"; done
+            for ((j=i; j>0; j--)); do echo -ne "\e[32m-\e[0m"; done
+            echo -ne " ]\r"
+            sleep 1
+        done
+        echo ""
+        echo -e "${INFO} 重启中..."
+        reboot
+    else
+        echo -e "${INFO} 请手动重启系统以使更改生效。"
+    fi
+    exit 0
+}
+
+# 检查目录文件并安装
+check_and_install_kernel() {
+    KERNEL_FILES=($(find . -maxdepth 1 -name "kernel-*-${LINUXFAMILY}.tar.gz" -exec basename {} \;))
+    if [[ ${#KERNEL_FILES[@]} -gt 0 ]]; then
+        if [[ ${#KERNEL_FILES[@]} -eq 1 ]]; then
+            KERNEL_FILE="${KERNEL_FILES[0]}"
+            echo -e "${INFO} 发现内核文件: [\033[92m ${KERNEL_FILE} \033[0m]"
+            read -p "$(echo -e "${OPTIONS} 是否安装内核？[Y/n]: ")" INSTALL_CHOICE
+            [[ ! "${INSTALL_CHOICE:-y}" =~ ^[Yy]$ ]] && { echo -e "${INFO} 您选择不安装。"; exit 0; }
+        else
+            echo -e "${INFO} 发现内核文件:"
+            for i in "${!KERNEL_FILES[@]}"; do
+                echo -e "${SN} [\033[96m $((i+1)) \033[0m] -> [\033[92m ${KERNEL_FILES[$i]} \033[0m]"
+            done
+            while true; do
+                read -p "$(echo -e "${OPTIONS} 请输入序号 [\033[96m 1-${#KERNEL_FILES[@]} \033[0m]: ")" CHOICE
+                if [[ "$CHOICE" -ge 1 && "$CHOICE" -le ${#KERNEL_FILES[@]} ]]; then
+                    KERNEL_FILE="${KERNEL_FILES[$((CHOICE-1))]}"
+                    break
+                else
+                    echo -e "${ERROR} 选择无效，请重新输入！"
+                fi
+            done
+        fi
+        create_temp_dir
+        tar -xzf "${KERNEL_FILE}" -C "${TEMP_DIR}" || error "解压失败，请检查文件。"
+        echo -e "${SUCCESS} 解压文件完成！"
+        cd "${TEMP_DIR}" || error "无法进入临时目录：${TEMP_DIR}"
+        uninstall_linux_libc_dev
+        install_kernel_packages
+        cleanup_temp_dir
+        read -p "$(echo -e "${OPTIONS} 是否删除内核文件？[Y/n]: ")" DELETE_CHOICE
+        DELETE_CHOICE=${DELETE_CHOICE:-y}
+        [[ "${DELETE_CHOICE}" =~ ^[Yy]$ ]] && rm -f "${KERNEL_FILE}"
+        reboot_system
+    fi
+}
+
+# 随机选择代理
+select_proxy() {
+    shuffled_indices=($(shuf -i 0-2 -n 3))
+    for i in "${shuffled_indices[@]}"; do
+        RANDOM_PROXY_URL="https://${PROXIES[$i]}/"
+        echo -e "${INFO} 尝试代理加速：[\033[92m ${PROXIES[$i]} \033[0m]"
+        if curl -L -s --head --request GET "${RANDOM_PROXY_URL}" | grep "HTTP/" | grep -E "200" > /dev/null; then
+            PROXY_URL="${RANDOM_PROXY_URL}"
+            echo -e "${SUCCESS} 代理加速可用！"
+            return 0
+        fi
+    done
+    echo -e "${ERROR} 代理加速失效！"
+    read -p "$(echo -e "${OPTIONS} 是否尝试直连？[Y/n]: ")" USE_direct
+    USE_direct=${USE_direct:-Y}
+    [[ "${USE_direct}" =~ ^[Nn]$ ]] && { echo -e "${INFO} 放弃尝试，退出脚本！"; exit 0; }
+    PROXY_URL=""
+    echo -e "${INFO} 使用直连下载！"
+}
+
+# 下载解压内核包
+download_kernel_package() {
+    DOWNLOAD_URL="${PROXY_URL}https://github.com/Zane-E/Armbian-Actions/releases/download/Kernel-${LINUXFAMILY}/kernel-${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz"
+    cd "${TEMP_DIR}" || exit
+    echo -e "${STEPS} 正在下载文件: [\033[92m ${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz \033[0m]"
+    wget -q -O "${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" "${DOWNLOAD_URL}" >/dev/null 2>&1 || error "下载失败，请检查版本号或网络连接。"
+    echo -e "${SUCCESS} 下载完成！"
+    tar -xzf "${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz" || error "解压失败，请检查压缩文件。"
+    echo -e "${SUCCESS} 解压完成！"
+}
+
+OPTERR=0
+while getopts "k:lh" opt; do
+    case ${opt} in
+        k) validate_version_format "${OPTARG}" || exit 1; KERNEL_VERSION="${OPTARG}"; SKIP_KERNEL_CHECK=true ;;
+        l) SHOW_VERSIONS=true ;;
+        h) usage ;;
+        *) usage ;;
+    esac
+done
+
+# -l 参数，则显示同系列内核版本列表
+[[ "${SHOW_VERSIONS}" == true ]] && { list_all_versions; exit 0; }
+
+# 显示内核类型
+echo -e "${INFO} 系统内核类型: [\033[92m ${LINUXFAMILY} \033[0m]"
+
+# 显示当前内核版本
+CURRENT_KERNEL=$(uname -r | cut -d'-' -f1)
+echo -e "${INFO} 当前内核版本: [\033[92m ${CURRENT_KERNEL} \033[0m]"
+
+# -k 参数，则不检查目录文件
+[[ "${SKIP_KERNEL_CHECK}" != true ]] && check_and_install_kernel
+
+# 获取/处理内核版本
+if [[ -z "${KERNEL_VERSION}" ]]; then
+    LATEST_VERSION=$(get_latest_version) || error "无法获取最新的 Linux 内核版本。"
+    [[ -z "${LATEST_VERSION}" || ! "${LATEST_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && error "获取到的最新版本号格式错误：${LATEST_VERSION}。"
+    echo -e "${INFO} 最新内核版本: [\033[92m ${LATEST_VERSION} \033[0m]"
+    [[ "${CURRENT_KERNEL}" == "${LATEST_VERSION}" ]] && { echo -e "${INFO} 您的系统已是最新内核版本。"; exit 0; }
+    if [[ "$(printf '%s\n' "${CURRENT_KERNEL}" "${LATEST_VERSION}" | sort -V | head -n1)" == "${CURRENT_KERNEL}" ]]; then
+        read -p "$(echo -e "${OPTIONS} 检测到新版本，是否更新？[Y/n]: ")" UPDATE_CHOICE
+        [[ ! "${UPDATE_CHOICE:-y}" =~ ^[Yy]$ ]] && { echo -e "${INFO} 您选择不更新。"; exit 0; }
+        KERNEL_VERSION="${LATEST_VERSION}"
+        echo -e "${INFO} 您选择更新到最新版本: [\033[92m ${KERNEL_VERSION} \033[0m]"
+    fi
+else
+    echo -e "${INFO} 指定内核版本: [\033[92m ${KERNEL_VERSION} \033[0m]"
+fi
+
+# 选择是否使用代理下载
+read -p "$(echo -e "${OPTIONS} 是否使用代理下载？[y/N]: ")" USE_PROXY
+USE_PROXY=${USE_PROXY:-n}
+[[ "${USE_PROXY}" =~ ^[Yy]$ ]] && select_proxy || PROXY_URL=""
+
+# 创建临时目录
+create_temp_dir
+
+# 下载解压内核包
+download_kernel_package
+
+# 检查卸载冲突包
+uninstall_linux_libc_dev
+
+# 安装内核文件
+install_kernel_packages
+
+# 删除临时目录
+cleanup_temp_dir
+
+# 提示重启系统
+reboot_system
