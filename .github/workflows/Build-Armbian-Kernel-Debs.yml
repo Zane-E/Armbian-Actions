@@ -144,7 +144,7 @@ jobs:
         run: |
           echo "CURRENT_YEAR_MONTH=$(date +'%Y.%m')" >> $GITHUB_ENV
 
-      - name: Prepare Release Metadata
+      - name: Prepare Image Metadata
         run: |
           cd "${GITHUB_WORKSPACE}/build/output/images/"
           latest_image=$(find . -maxdepth 1 -type f -name 'Armbian_*.img.xz' -printf '%f\n' | head -n 1)
@@ -174,7 +174,7 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Prepare Debs
+      - name: Prepare Debs Metadata
         run: |
           cd "${GITHUB_WORKSPACE}/build/output/debs/"
           [ -d "extra/${{ inputs.RELEASE }}-utils" ] && mv extra/${{ inputs.RELEASE }}-utils/* ./ && rm -rf extra
@@ -219,7 +219,7 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Prepare Kernel
+      - name: Prepare Kernel Metadata
         run: |
           cd "${GITHUB_WORKSPACE}/build/output/debs/"
           matching_files_array=($(ls linux-dtb* linux-headers* linux-image* linux-libc* 2>/dev/null))

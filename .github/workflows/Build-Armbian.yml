@@ -145,7 +145,7 @@ jobs:
         run: |
           echo "CURRENT_YEAR_MONTH=$(date +'%Y.%m')" >> $GITHUB_ENV
 
-      - name: Prepare Release Metadata
+      - name: Prepare Image Metadata
         run: |
           cd "${GITHUB_WORKSPACE}/build/output/images/"
           latest_image=$(find . -maxdepth 1 -type f -name 'Armbian_*.img.xz' -printf '%f\n' | head -n 1)

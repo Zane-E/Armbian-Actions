@@ -120,7 +120,7 @@ jobs:
           esac
           ./compile.sh kernel BOARD=${BoardFamily} BRANCH=${{ inputs.BRANCH }} PREFER_DOCKER=no DOCKER_ARMBIAN_BASE_IMAGE=ubuntu:jammy DEB_COMPRESS=xz
 
-      - name: Prepare Kernel
+      - name: Prepare Kernel Metadata
         run: |
           cd "${GITHUB_WORKSPACE}/build/output/debs/"
           file=$(find . -maxdepth 1 -type f -name 'linux-image-*.deb' -printf '%f\n' | head -n 1)
