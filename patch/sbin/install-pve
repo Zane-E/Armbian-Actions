@@ -1,0 +1,198 @@
+#!/bin/bash
+
+set -e
+
+# 设置字体颜色
+STEPS="[\033[95m 步骤 \033[0m]"      # 步骤
+INFO="[\033[94m 信息 \033[0m]"       # 信息
+SUCCESS="[\033[92m 成功 \033[0m]"    # 成功
+OPTIONS="[\033[93m 选项 \033[0m]"    # 选项
+ERROR="[\033[91m 错误 \033[0m]"      # 错误
+
+# 检查系统版本
+source /etc/os-release
+if [[ "${VERSION_CODENAME}" != "bookworm" ]]; then
+  echo -e "${ERROR} 当前系统不是 Debian 12 (bookworm)，退出！"
+  exit 1
+fi
+
+# 检查 CPU 架构（仅允许 ARM64）
+ARCH=$(uname -m)
+if [[ "${ARCH}" != "aarch64" && "${ARCH}" != "arm64" ]]; then
+  echo -e "${ERROR} 当前架构为 ${ARCH}，非 ARM64，退出！"
+  exit 1
+fi
+
+# 检查 root 权限
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo -e "${ERROR} 请使用 root 用户运行！"
+  exit 1
+fi
+
+# 国内源确认
+echo -e "${INFO} 请确认系统已更换为国内镜像软件源！"
+echo -e "${INFO} 网络环境可以稳定访问官方源，可忽略！"
+echo -e "${INFO} 图文教程参考 [\033[92m https://zhou.pp.ua \033[0m]"
+read -p "$(echo -e "${OPTIONS} 是否已更换为国内源？[y/N]: ")" CONFIRM_SOURCE
+CONFIRM_SOURCE=${CONFIRM_SOURCE:-N}
+if [[ "${CONFIRM_SOURCE}" =~ ^[Nn]$ ]]; then
+  if command -v armbian-apt >/dev/null 2>&1; then
+    echo -e "${STEPS} 正在调用 [\033[92m armbian-apt \033[0m] 选择国内源！"
+    armbian-apt
+    read -p "$(echo -e "${OPTIONS} 是否进行安装？[Y/n]: ")" CONTINUE_AFTER_APT
+    CONTINUE_AFTER_APT=${CONTINUE_AFTER_APT:-Y}
+    if [[ ! "$CONTINUE_AFTER_APT" =~ ^[Yy]$ ]]; then
+      echo -e "${INFO} 中止安装，已退出！"
+      exit 0
+    fi
+  else
+    echo -e "${ERROR} 未找到 armbian-apt，请先手动更换国内源。"
+    exit 1
+  fi
+fi
+
+echo -e "${STEPS} 开始配置环境"
+
+# 备份、注释 armbian armbian-config 源（可恢复）
+for FILE in \
+    /etc/apt/sources.list.d/armbian.sources \
+    /etc/apt/sources.list.d/armbian-config.sources
+do
+    {
+        BAK="${FILE}.bak"
+        if [ -f "${FILE}" ] && [ ! -f "${BAK}" ]; then
+            cp "${FILE}" "${BAK}"
+        fi
+        if [ -f "${FILE}" ]; then
+            sed -i 's/^\([^#]\)/#\1/' "${FILE}"
+        fi
+    }
+done
+
+# 设置环境变量（防止路径异常）
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# 添加 Proxmox VE 第三方源
+echo "deb https://download.lierfang.com/pxcloud/pxvirt bookworm main" > /etc/apt/sources.list.d/pxvirt-sources.list
+curl -fsSL https://download.lierfang.com/pxcloud/pxvirt/pveport.gpg -o /etc/apt/trusted.gpg.d/pveport.gpg
+
+# 安装网络配置依赖
+apt update && apt install -y ifupdown2 resolvconf
+
+# 切换到传统网络
+systemctl enable networking
+systemctl disable systemd-networkd 2>/dev/null || true
+systemctl disable systemd-networkd.socket 2>/dev/null || true
+apt remove -y netplan.io && apt autoremove -y
+
+# 禁用无关服务
+echo -e "${STEPS} 禁用 NetworkManager"
+systemctl disable --now NetworkManager 2>/dev/null || true
+
+# 自动识别默认网卡
+NET_IF=$(ip route | grep '^default' | grep -oP 'dev\s+\K\S+')
+if [[ -z "${NET_IF}" ]]; then
+  echo -e "${ERROR} 无法识别默认网卡，请检查是否已连接网络。"
+  exit 1
+fi
+
+# 获取网络信息
+IP_ADDR=$(ip -4 addr show "${NET_IF}" | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+GATEWAY=$(ip route | grep default | awk '{print $3}')
+CIDR=$(ip -4 addr show "${NET_IF}" | grep -oP '(?<=inet\s)\d+(\.\d+){3}/\d+' | cut -d'/' -f2)
+MAC_ADDR=$(cat /sys/class/net/"${NET_IF}"/address)
+if [[ -z "${IP_ADDR}" || -z "${GATEWAY}" || -z "${CIDR}" ]]; then
+  echo -e "${ERROR} 获取 IP / 网关 / 子网掩码失败，请确认网络接口 ${NET_IF} 状态。"
+  exit 1
+fi
+
+# CIDR 转换为子网掩码
+cidr_to_netmask() {
+  local cidr=${1}
+  if [[ -z "${cidr}" || "${cidr}" -le 0 || "${cidr}" -gt 32 ]]; then
+    echo -e "${ERROR} 子网掩码位数无效！"
+    exit 1
+  fi
+  local i mask=""
+  local full_octets=$((cidr / 8))
+  local remainder=$((cidr % 8))
+  for ((i = 0; i < 4; i++)); do
+    if ((i < full_octets)); then
+      mask+=255
+    elif ((i == full_octets)); then
+      mask+=$((256 - 2**(8 - remainder)))
+    else
+      mask+=0
+    fi
+    [[ ${i} -lt 3 ]] && mask+=.
+  done
+  echo "${mask}"
+}
+NETMASK_DECIMAL=$(cidr_to_netmask "${CIDR}")
+
+# 配置网络（静态）
+echo -e "${STEPS} 配置 /etc/network/interfaces"
+cat <<EOF > /etc/network/interfaces
+auto lo
+iface lo inet loopback
+
+auto ${NET_IF}
+iface ${NET_IF} inet static
+    hwaddress ether ${MAC_ADDR}
+    address ${IP_ADDR}
+    netmask ${NETMASK_DECIMAL}
+    gateway ${GATEWAY}
+EOF
+
+# 配置 resolv.conf（DNS）
+echo -e "${STEPS} 配置 /etc/resolv.conf"
+cat <<EOF > /etc/resolv.conf
+search lan
+nameserver ${GATEWAY}
+EOF
+
+# 提取主机名
+HOSTNAME_VAR=$(tr -d ' \t\n\r' < /etc/hostname)
+
+# 配置 /etc/hosts
+echo -e "${STEPS} 配置 /etc/hosts"
+cat <<EOF > /etc/hosts
+127.0.0.1       localhost
+${IP_ADDR}   ${HOSTNAME_VAR}.local ${HOSTNAME_VAR}
+::1             localhost ip6-localhost ip6-loopback
+fe00::0         ip6-localnet
+ff00::0         ip6-mcastprefix
+ff02::1         ip6-allnodes
+ff02::2         ip6-allrouters
+EOF
+
+# 安装 Proxmox VE 并提示结果
+echo -e "${STEPS} 安装 Proxmox VE"
+if apt update && apt install -y proxmox-ve; then
+  echo -e "${SUCCESS} Proxmox VE 安装完成！请重启设备后使用浏览器访问 [\033[92m https://${IP_ADDR}:8006 \033[0m]"
+else
+  echo -e "${ERROR} Proxmox VE 安装失败，请检查网络或源配置。"
+  exit 1
+fi
+
+# 提示重启系统
+reboot_system() {
+    read -p "$(echo -e "${OPTIONS} 是否立即重启系统？[Y/n]: ")" REBOOT_CHOICE
+    REBOOT_CHOICE=${REBOOT_CHOICE:-y}
+    if [[ "${REBOOT_CHOICE}" =~ ^[Yy]$ ]]; then
+        for ((i=5; i>=0; i--)); do
+            echo -ne "${STEPS} 倒计时: [ "
+            for ((j=5; j>i; j--)); do echo -ne "\e[31m=\e[0m"; done
+            for ((j=i; j>0; j--)); do echo -ne "\e[32m-\e[0m"; done
+            echo -ne " ]\r"
+            sleep 1
+        done
+        echo ""
+        echo -e "${INFO} 重启中..."
+        reboot
+    else
+        echo -e "${INFO} 请手动重启系统！"
+    fi
+    exit 0
+}
+reboot_system
