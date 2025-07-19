@@ -138,7 +138,7 @@ cleanup_temp_dir() {
 
 # 提示重启系统
 reboot_system() {
-    read -p "$(echo -e "${OPTIONS} 是否立即重启系统？[Y/n]: ")" REBOOT_CHOICE
+    read -p "$(echo -e "${OPTIONS} 是否立即重启系统？[\033[92mY\033[0m/n]: ")" REBOOT_CHOICE
     REBOOT_CHOICE=${REBOOT_CHOICE:-y}
     if [[ "${REBOOT_CHOICE}" =~ ^[Yy]$ ]]; then
         # echo -e "${INFO} 系统将在 5 秒后重启，按 Ctrl+C 取消重启。"
@@ -165,7 +165,7 @@ check_and_install_kernel() {
             KERNEL_FILE="${KERNEL_FILES[0]}"
             echo -e "${INFO} 发现内核文件: [\033[92m ${KERNEL_FILE} \033[0m]"
             echo -e "${INFO} 本地文件，请自行校验 SHA256 !"
-            read -p "$(echo -e "${OPTIONS} 是否安装内核？[Y/n]: ")" INSTALL_CHOICE
+            read -p "$(echo -e "${OPTIONS} 是否安装内核？[\033[92mY\033[0m/n]: ")" INSTALL_CHOICE
             [[ ! "${INSTALL_CHOICE:-y}" =~ ^[Yy]$ ]] && { echo -e "${INFO} 您选择不安装。"; exit 0; }
         else
             echo -e "${INFO} 发现内核文件:"
@@ -190,7 +190,7 @@ check_and_install_kernel() {
         uninstall_linux_libc_dev
         install_kernel_packages
         cleanup_temp_dir
-        read -p "$(echo -e "${OPTIONS} 是否删除内核文件？[Y/n]: ")" DELETE_CHOICE
+        read -p "$(echo -e "${OPTIONS} 是否删除内核文件？[\033[92mY\033[0m/n]: ")" DELETE_CHOICE
         DELETE_CHOICE=${DELETE_CHOICE:-y}
         [[ "${DELETE_CHOICE}" =~ ^[Yy]$ ]] && rm -f "${KERNEL_FILE}"
         reboot_system
@@ -199,7 +199,7 @@ check_and_install_kernel() {
 
 # 是否使用代理下载
 handle_proxy() {
-  read -p "$(echo -e "${OPTIONS} 是否使用代理下载？[y/N]: ")" USE_PROXY
+  read -p "$(echo -e "${OPTIONS} 是否使用代理下载？[y/\033[92mN\033[0m]: ")" USE_PROXY
   USE_PROXY=${USE_PROXY:-n}
   if [[ "${USE_PROXY}" =~ ^[Yy]$ ]]; then
     shuffled_indices=($(shuf -i 0-2 -n 3))
@@ -213,7 +213,7 @@ handle_proxy() {
       fi
     done
     echo -e "${ERROR} 代理加速失效！"
-    read -p "$(echo -e "${OPTIONS} 是否尝试直连？[Y/n]: ")" USE_direct
+    read -p "$(echo -e "${OPTIONS} 是否尝试直连？[\033[92mY\033[0m/n]: ")" USE_direct
     USE_direct=${USE_direct:-Y}
     [[ "${USE_direct}" =~ ^[Nn]$ ]] && { echo -e "${INFO} 放弃尝试，退出脚本！"; exit 0; }
     PROXY_URL=""
@@ -256,7 +256,7 @@ check_and_set_kernel_version() {
     echo -e "${INFO} 最新内核版本: [\033[92m ${LATEST_VERSION} \033[0m]"
     [[ "${CURRENT_KERNEL}" == "${LATEST_VERSION}" ]] && { echo -e "${INFO} 您的系统已是最新内核版本。"; exit 0; }
     if [[ "$(printf '%s\n' "${CURRENT_KERNEL}" "${LATEST_VERSION}" | sort -V | head -n1)" == "${CURRENT_KERNEL}" ]]; then
-      read -p "$(echo -e "${OPTIONS} 检测到新版本，是否更新？[Y/n]: ")" UPDATE_CHOICE
+      read -p "$(echo -e "${OPTIONS} 检测到新版本，是否更新？[\033[92mY\033[0m/n]: ")" UPDATE_CHOICE
       [[ ! "${UPDATE_CHOICE:-y}" =~ ^[Yy]$ ]] && { echo -e "${INFO} 您选择不更新。"; exit 0; }
       KERNEL_VERSION="${LATEST_VERSION}"
       echo -e "${INFO} 您选择更新到最新版本: [\033[92m ${KERNEL_VERSION} \033[0m]"
