@@ -48,7 +48,7 @@ confirm_source() {
   echo -e "${INFO} 请确认系统已更换为国内镜像软件源！"
   echo -e "${INFO} 网络环境可以稳定访问官方源，可忽略！"
   echo -e "${INFO} 图文教程参考 [\033[92m https://zhou.pp.ua \033[0m]"
-  read -p "$(echo -e "${OPTIONS} 是否已更换为国内源？[y/N]: ")" USE_DOMESTIC_SOURCE_CHOICE
+  read -p "$(echo -e "${OPTIONS} 是否已更换为国内源？[y/\033[92mN\033[0m]: ")" USE_DOMESTIC_SOURCE_CHOICE
   USE_DOMESTIC_SOURCE_CHOICE=${USE_DOMESTIC_SOURCE_CHOICE:-N}
   if [[ "${USE_DOMESTIC_SOURCE_CHOICE}" =~ ^[Nn]$ ]]; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -61,7 +61,7 @@ confirm_source() {
     else
       error "未找到 [\033[92m armbian-apt \033[0m]，请手动更换国内源！"
     fi
-    read -p "$(echo -e "${OPTIONS} 是否继续安装？[Y/n]: ")" CONTINUE_INSTALL_CHOICE
+    read -p "$(echo -e "${OPTIONS} 是否继续安装？[\033[92mY\033[0m/n]: ")" CONTINUE_INSTALL_CHOICE
     CONTINUE_INSTALL_CHOICE=${CONTINUE_INSTALL_CHOICE:-Y}
     if [[ ! "${CONTINUE_INSTALL_CHOICE}" =~ ^[Yy]$ ]]; then
       echo -e "${INFO} 中止安装，已退出！"
@@ -205,7 +205,7 @@ install_pve() {
 }
 
 optimize_memory() {
-  read -p "$(echo -e "${OPTIONS} 是否进行内存优化？[Y/n]: ")" OPTIMIZE_MEMORY_CHOICE
+  read -p "$(echo -e "${OPTIONS} 是否进行内存优化？[\033[92mY\033[0m/n]: ")" OPTIMIZE_MEMORY_CHOICE
   OPTIMIZE_MEMORY_CHOICE=${OPTIMIZE_MEMORY_CHOICE:-y}
   if [[ "${OPTIMIZE_MEMORY_CHOICE}" =~ ^[Yy]$ ]]; then
     echo -e "${INFO} 开始内存优化..."
@@ -271,7 +271,7 @@ EOF
 }
 
 create_vmbr0() {
-  read -p "$(echo -e "${OPTIONS} 是否创建网桥？[Y/n]: ")" CREATE_BRIDGE_CHOICE
+  read -p "$(echo -e "${OPTIONS} 是否创建网桥？[\033[92mY\033[0m/n]: ")" CREATE_BRIDGE_CHOICE
   CREATE_BRIDGE_CHOICE=${CREATE_BRIDGE_CHOICE:-y}
 
   if [[ "${CREATE_BRIDGE_CHOICE}" =~ ^[Yy]$ ]]; then
@@ -302,7 +302,7 @@ EOF
 }
 
 configure_ipv6_sysctl() {
-  echo -e "${INFO} 开始配置 \033[95mIPv6\033[0m 参数..."
+  echo -e "${INFO} 开始配置 IPv6 参数..."
 
   add_or_update_sysctl_param() {
     local KEY=$1
@@ -321,11 +321,11 @@ configure_ipv6_sysctl() {
   add_or_update_sysctl_param "net.ipv6.conf.all.autoconf" 1
   add_or_update_sysctl_param "net.ipv6.conf.default.autoconf" 1
   add_or_update_sysctl_param "net.ipv6.conf.vmbr0.autoconf" 1
-  echo -e "${SUCCESS} \033[95mIPv6\033[0m 参数配置成功！"
+  echo -e "${SUCCESS} IPv6 参数配置成功！"
 }
 
 prompt_reboot() {
-  read -p "$(echo -e "${OPTIONS} 是否立即重启？[Y/n]: ")" REBOOT_CHOICE
+  read -p "$(echo -e "${OPTIONS} 是否立即重启？[\033[92mY\033[0m/n]: ")" REBOOT_CHOICE
   REBOOT_CHOICE=${REBOOT_CHOICE:-y}
   if [[ "${REBOOT_CHOICE}" =~ ^[Yy]$ ]]; then
     for ((i=5; i>=0; i--)); do
