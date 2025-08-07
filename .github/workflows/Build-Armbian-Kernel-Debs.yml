@@ -1,0 +1,298 @@
+name: Build Armbian Kernel Debs
+
+on:
+  workflow_dispatch:
+    inputs:
+      BOARD:
+        description: 'Board type'
+        required: true
+        default: 'nanopct4'
+        type: choice
+        options:
+          - 'nanopct4'
+          - 'rock-5c'
+          - 'panther-x2'
+          - 'aml-s9xx-box'
+          - 'radxa-cubie-a5e'
+          - 'jp-tvbox'
+          - 'nanopi-r3s'
+          - 'onecloud'
+          - 'station-m2'
+      BRANCH:
+        description: 'Armbian branch'
+        default: 'current'
+        required: true
+        type: choice
+        options:
+          - 'current'
+          - 'edge'
+          - 'vendor'
+      RELEASE:
+        description: 'Release name'
+        default: 'bookworm'
+        required: true
+        type: choice
+        options:
+          - 'bookworm'
+          - 'trixie'
+          - 'jammy'
+          - 'noble'
+      BUILD_DESKTOP:
+        description: 'Build desktop environment'
+        default: 'no'
+        required: false
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+      BUILD_MINIMAL:
+        description: 'BUILD MINIMAL environment'
+        default: 'yes'
+        required: false
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+      PREFER_DOCKER:
+        description: 'Use Docker build'
+        default: 'no'
+        required: false
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+      DOCKER_ARMBIAN_BASE_IMAGE:
+        description: 'Docker IMAGE'
+        default: 'ubuntu:jammy'
+        required: false
+        type: choice
+        options:
+          - 'ubuntu:jammy'
+          - 'ubuntu:noble'
+          - 'debian:bookworm'
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  Build-Armbian:
+    runs-on: ubuntu-24.04-arm
+    env:
+      RELEASE: ${{ inputs.RELEASE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialization environment
+        id: init
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          echo "START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> $GITHUB_ENV
+          docker_images_ids=$(docker images -q)
+          [ -n "$docker_images_ids" ] && docker rmi $docker_images_ids
+          docker image prune -a -f
+          [[ -n "${AGENT_TOOLSDIRECTORY}" ]] && sudo rm -rf "${AGENT_TOOLSDIRECTORY}"
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android 2>/dev/null
+          sudo swapoff -a
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* openjdk* mysql* php* mongodb* dotnet* moby* snapd* android* || true
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
+          sudo -E apt-get clean
+          sudo sed -i '/NVM_DIR/d;/skel/d' /root/{.bashrc,.profile}
+          sudo rm -rf ~/{.cargo,.dotnet,.rustup}
+          sudo timedatectl set-timezone "${TZ}"
+
+      - name: Create simulated physical disk
+        id: disk
+        run: |
+          mnt_size=$(expr $(df -h /mnt | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 1)
+          root_size=$(expr $(df -h / | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 4)
+          sudo truncate -s "${mnt_size}"G /mnt/mnt.img
+          sudo truncate -s "${root_size}"G /root.img
+          sudo losetup /dev/loop6 /mnt/mnt.img
+          sudo losetup /dev/loop7 /root.img
+          sudo pvcreate /dev/loop6
+          sudo pvcreate /dev/loop7
+          sudo vgcreate github /dev/loop6 /dev/loop7
+          sudo lvcreate -n runner -l 100%FREE github
+          sudo mkfs.xfs /dev/github/runner
+          sudo mkdir -p /mnt/workdir
+          sudo mount /dev/github/runner /mnt/workdir
+          sudo chown $USER:$GROUPS /mnt/workdir
+          df -Th
+
+      - name: Download source code
+        working-directory: /mnt/workdir
+        run: |
+          df -hT ${PWD}
+          git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build.git build
+          ln -sf /mnt/workdir/build ${GITHUB_WORKSPACE}/build
+
+      - name: Apply patches
+        run: |
+          cd "${GITHUB_WORKSPACE}/build"
+          "${GITHUB_WORKSPACE}/scripts/apply_patches.sh"
+          "${GITHUB_WORKSPACE}/scripts/rename_to_conf.sh"
+          ls -la
+
+      - name: Compile Armbian [ ${{ inputs.BOARD }} ${{ inputs.BRANCH }} ${{ inputs.RELEASE }} ]
+        run: |
+          cd "${GITHUB_WORKSPACE}/build/"
+          ./compile.sh build BOARD=${{ inputs.BOARD }} BRANCH=${{ inputs.BRANCH }} RELEASE=${{ inputs.RELEASE }} BUILD_MINIMAL=${{ inputs.BUILD_MINIMAL }} BUILD_DESKTOP=${{ inputs.BUILD_DESKTOP }} \
+            PREFER_DOCKER=${{ inputs.PREFER_DOCKER }} DOCKER_ARMBIAN_BASE_IMAGE=${{ inputs.DOCKER_ARMBIAN_BASE_IMAGE }} COMPRESS_OUTPUTIMAGE=xz KERNEL_CONFIGURE=no DEB_COMPRESS=xz
+
+      - name: Set current year and month
+        run: |
+          echo "CURRENT_YEAR_MONTH=$(date +'%Y.%m')" >> $GITHUB_ENV
+
+      - name: Prepare Image Metadata
+        run: |
+          cd "${GITHUB_WORKSPACE}/build/output/images/"
+          Image_File=$(find . -maxdepth 1 -type f -name 'Armbian_*.img.xz' -printf '%f\n' | head -n 1)
+          [ -z "$Image_File" ] && { echo "No image files found."; exit 1; }
+          echo "Image_File: $Image_File"
+          VERSION=$(echo "$Image_File" | cut -d '_' -f 2)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION: $VERSION"
+
+      - name: Upload Image to Release
+        if: success()
+        uses: ncipollo/release-action@main
+        with:
+          tag: "Armbian-${{ inputs.RELEASE }}-${{ env.CURRENT_YEAR_MONTH }}"
+          name: "Armbian-${{ inputs.RELEASE }}-${{ env.CURRENT_YEAR_MONTH }}"
+          artifacts: "${{ github.workspace }}/build/output/images/*"
+          allowUpdates: true
+          removeArtifacts: false
+          replacesArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            ### Armbian Image Information
+            - Release: ${{ inputs.RELEASE }}
+            - Version: ${{ env.VERSION }}
+            - Username: root
+            - Password: 1234
+          draft: false
+          prerelease: false
+
+      - name: Prepare Debs Metadata
+        run: |
+          cd "${GITHUB_WORKSPACE}/build/output/debs/"
+          [ -d "extra/${{ inputs.RELEASE }}-utils" ] && mv extra/${{ inputs.RELEASE }}-utils/* ./ && rm -rf extra
+          Kernel_File=$(find . -maxdepth 1 -type f -name 'linux-image-*.deb' -printf '%f\n' | head -n 1)
+
+          if [ -n "$Kernel_File" ]; then
+            echo "Kernel_File: $Kernel_File"
+            KERNEL_VERSION=$(echo "$Kernel_File" | cut -d '_' -f 5 | cut -d '-' -f 1)
+            [[ ! "$KERNEL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && KERNEL_VERSION="${KERNEL_VERSION}.0"
+            echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
+            echo "KERNEL_VERSION: $KERNEL_VERSION"
+            LINUX_FAMILY=$(echo "$Kernel_File" | cut -d '-' -f 3 | cut -d '_' -f 1)
+            echo "LINUX_FAMILY=$LINUX_FAMILY" >> $GITHUB_ENV
+            echo "LINUX_FAMILY: $LINUX_FAMILY"
+
+          else
+            echo "No matching file found. Available files are:"
+            ls -1 "${GITHUB_WORKSPACE}/build/output/debs/"
+            exit 1
+          fi
+
+          tar -czf "../${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}.tar.gz" \
+              --exclude=linux-dtb* --exclude=linux-headers* --exclude=linux-image* --exclude=linux-libc* *
+          echo "Compressed matching files to ${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}.tar.gz"
+          tar -tzf "../${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}.tar.gz" || { echo "Failed to create valid tar.gz file"; exit 1; }
+
+      - name: Upload Debs to Release
+        if: success()
+        uses: ncipollo/release-action@main
+        with:
+          tag: "Armbian-Debs"
+          name: "Armbian-Debs"
+          artifacts: "${{ github.workspace }}/build/output/${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}.tar.gz"
+          allowUpdates: true
+          removeArtifacts: false
+          replacesArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            ### Armbian Debs Packages
+            - Usage method: After unzipping, install the deb packages in order
+            - Packages include: armbian-bsp-cli | armbian-firmware | base-files
+          draft: false
+          prerelease: false
+
+      - name: Prepare Kernel Metadata
+        run: |
+          cd "${GITHUB_WORKSPACE}/build/output/debs/"
+          matching_files_array=($(ls linux-dtb* linux-headers* linux-image* linux-libc* 2>/dev/null))
+
+          if [ ${#matching_files_array[@]} -gt 0 ]; then
+            renamed_files=()
+            for f in "${matching_files_array[@]}"; do
+            base_name=$(echo "$f" | sed -E 's/_.*//')
+            newf="${base_name}-${{ env.KERNEL_VERSION }}.deb"
+            if [ "$f" != "$newf" ]; then
+              mv "$f" "$newf"
+            fi
+            renamed_files+=("$newf")
+          done
+            tar -czf "../kernel-${{ env.KERNEL_VERSION }}-${{ env.LINUX_FAMILY }}.tar.gz" "${renamed_files[@]}"
+            echo "Compressed matching files to kernel-${{ env.KERNEL_VERSION }}-${{ env.LINUX_FAMILY }}.tar.gz"
+          else
+            echo "No matching files found for compression."
+            exit 1
+          fi
+
+          tar -tzf "../kernel-${{ env.KERNEL_VERSION }}-${{ env.LINUX_FAMILY }}.tar.gz" || { echo "Failed to create valid tar.gz file"; exit 1; }
+
+      - name: Upload Kernel to Release
+        if: success()
+        uses: ncipollo/release-action@main
+        with:
+          tag: "Kernel-${{ env.LINUX_FAMILY }}"
+          name: "Kernel-${{ env.LINUX_FAMILY }}"
+          artifacts: "${{ github.workspace }}/build/output/kernel-${{ env.KERNEL_VERSION }}-${{ env.LINUX_FAMILY }}.tar.gz"
+          allowUpdates: true
+          removeArtifacts: false
+          replacesArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            ### Armbian Kernel Packages for ${{ env.LINUX_FAMILY }}
+            - Usage method: After unzipping, install the deb packages in order
+            - Packages include: linux-dtb | linux-headers | linux-image | linux-libc-dev
+          draft: false
+          prerelease: false
+
+      - name: Prepare SHA256 Metadata
+        run: |
+          cd "${GITHUB_WORKSPACE}/build/output/"
+          sleep 15 && "${GITHUB_WORKSPACE}/scripts/sha256.sh"
+          ls -la
+
+      - name: Upload SHA256 to Release
+        if: success()
+        uses: ncipollo/release-action@main
+        with:
+          tag: "Kernel-${{ env.LINUX_FAMILY }}"
+          name: "Kernel-${{ env.LINUX_FAMILY }}"
+          artifacts: "${{ github.workspace }}/build/output/sha256.txt"
+          allowUpdates: true
+          removeArtifacts: false
+          replacesArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            ### Armbian Kernel Packages for ${{ env.LINUX_FAMILY }}
+            - Usage method: After unzipping, install the deb packages in order
+            - Packages include: linux-dtb | linux-headers | linux-image | linux-libc-dev
+          draft: false
+          prerelease: false
+
+      - name: Delete releases and workflows runs
+        uses: ophub/delete-releases-workflows@main
+        with:
+          delete_releases: true
+          releases_keep_latest: 10
+          delete_workflows: true
+          workflows_keep_day: 3
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
