@@ -1,4 +1,4 @@
-name: Build Kernel LinuxFamily
+name: Build Kernel LinuxFamily Test
 
 on:
   workflow_dispatch:
