@@ -15,7 +15,7 @@ fi
 
 # T4 Patches
 echo "Copying T4 patches..."
-cp -f ${GITHUB_WORKSPACE}/patch/test/meson64/general-fix-Kodi-sysinfo-CPU-information.patch patch/kernel/archive/rockchip64-6.16/
+cp -f ${GITHUB_WORKSPACE}/patch/test/meson64_6.16/general-fix-Kodi-sysinfo-CPU-information.patch patch/kernel/archive/rockchip64-6.16/
 cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information.patch patch/kernel/archive/rockchip64-6.12/
 cp -f ${GITHUB_WORKSPACE}/patch/T4/t4.patch patch/kernel/archive/rockchip64-6.16/
 cp -f ${GITHUB_WORKSPACE}/patch/T4/t4.patch patch/kernel/archive/rockchip64-6.12/

@@ -121,7 +121,7 @@ jobs:
           # sed -i 's|tag:v6\.16-rc[1-7]|tag:v6.16|' config/sources/mainline-kernel.conf.sh
           # sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|' lib/functions/configuration/main-config.sh
           mv patch/kernel/archive/meson64-6.15 patch/kernel/archive/meson64-6.16
-          cp -f ${GITHUB_WORKSPACE}/patch/test/meson64/* patch/kernel/archive/meson64-6.16/
+          cp -f ${GITHUB_WORKSPACE}/patch/test/meson64_6.16/* patch/kernel/archive/meson64-6.16/
           ls -la
 
       - name: Compile Kernel [ ${{ inputs.LinuxFamily }} ${{ inputs.BRANCH }} ]
