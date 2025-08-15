@@ -123,6 +123,7 @@ jobs:
           cp -f ${GITHUB_WORKSPACE}/patch/T4/t4.patch patch/kernel/archive/rockchip64-6.15/
           cp -f ${GITHUB_WORKSPACE}/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-6.15/dt/
           cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-6.15/dt/
+          cp -f ${GITHUB_WORKSPACE}/patch/test/rockchip64_6.15/* patch/kernel/archive/rockchip64-6.15/
           ls -la
 
       - name: Compile Kernel [ ${{ inputs.LinuxFamily }} ${{ inputs.BRANCH }} ]
