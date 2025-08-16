@@ -19,7 +19,7 @@ on:
           - 'edge'
       EXTRAWIFI:
         description: 'Several Wifi Drivers'
-        default: 'yes'
+        default: 'no'
         required: false
         type: choice
         options:
