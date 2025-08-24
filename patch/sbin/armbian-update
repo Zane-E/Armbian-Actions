@@ -19,7 +19,7 @@ VERSION_PREFIXES="6.1 6.12 6.15 6.16 6.17"
 VERSION_TOP="5"
 
 # 定义代理加速
-PROXIES=("gh-proxy.com" "ghproxy.cn" "ghfast.top")
+PROXIES=("gh-proxy.com" "ghproxy.net" "ghfast.top")
 
 # 错误处理
 error() {
@@ -209,7 +209,7 @@ handle_proxy() {
     for i in "${shuffled_indices[@]}"; do
       RANDOM_PROXY_URL="https://${PROXIES[$i]}/"
       echo -e "${INFO} 尝试代理加速：[\033[92m ${PROXIES[$i]} \033[0m]"
-      if curl -L -s --head --request GET "${RANDOM_PROXY_URL}" | grep "HTTP/" | grep -E "200" > /dev/null; then
+      if curl -L -s --head --request GET -m 5 "${RANDOM_PROXY_URL}" | grep "HTTP/" | grep -E "200" > /dev/null; then
         PROXY_URL="${RANDOM_PROXY_URL}"
         echo -e "${SUCCESS} 代理加速可用！"
         return 0
