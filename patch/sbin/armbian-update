@@ -13,7 +13,7 @@ SN="[\033[96m 序号 \033[0m]"
 release_file="/etc/armbian-release"
 
 # 定义内核主版本
-VERSION_PREFIXES="6.1 6.12 6.15 6.16 6.17"
+VERSION_PREFIXES="6.1 6.12 6.16 6.17"
 
 # 定义最新版本数量
 VERSION_TOP="5"

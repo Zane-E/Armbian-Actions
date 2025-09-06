@@ -128,7 +128,7 @@ jobs:
           "${GITHUB_WORKSPACE}/scripts/apply_patches.sh"
           "${GITHUB_WORKSPACE}/scripts/rename_to_conf.sh"
           sed -i 's|6\.16|6.17|g' config/sources/families/include/meson64_common.inc
-          sed -i 's|tag:v6\.17-rc[1-7]|tag:v6.17-rc4|' config/sources/mainline-kernel.conf.sh
+          sed -i 's|tag:v6\.17-rc[1-7]|tag:v6.17-rc5|' config/sources/mainline-kernel.conf.sh
           sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|' lib/functions/configuration/main-config.sh
           mv patch/kernel/archive/meson64-6.16 patch/kernel/archive/meson64-6.17
           cp -f ${GITHUB_WORKSPACE}/patch/test/meson64_6.17/* patch/kernel/archive/meson64-6.17/
