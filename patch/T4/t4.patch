@@ -1,0 +1,44 @@
+--- a/arch/arm64/boot/dts/rockchip/rk3399-nanopi4.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399-nanopi4.dtsi
+@@ -13,7 +13,7 @@
+
+ /dts-v1/;
+ #include <dt-bindings/input/linux-event-codes.h>
+-#include "rk3399.dtsi"
++#include "rk3399-op1.dtsi"
+
+ / {
+ 	aliases {
+
+--- a/arch/arm64/boot/dts/rockchip/rk3399-base.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399-base.dtsi
+@@ -312,7 +312,7 @@
+ 				<0 0 0 2 &pcie0_intc 1>,
+ 				<0 0 0 3 &pcie0_intc 2>,
+ 				<0 0 0 4 &pcie0_intc 3>;
+-		max-link-speed = <1>;
++		max-link-speed = <2>;
+ 		msi-map = <0x0 &its 0x0 0x1000>;
+ 		phys = <&pcie_phy 0>, <&pcie_phy 1>,
+ 		       <&pcie_phy 2>, <&pcie_phy 3>;
+
+--- a/arch/arm64/boot/dts/rockchip/rk3399-nanopc-t4.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399-nanopc-t4.dts
+@@ -59,7 +59,7 @@
+ 		 * With 20KHz PWM and an EVERCOOL EC4007H12SA fan, these levels
+ 		 * work out to 0, ~1200, ~3000, and 5000RPM respectively.
+ 		 */
+-		cooling-levels = <0 12 18 255>;
++		cooling-levels = <0 18 24 255>;
+ 		#cooling-cells = <2>;
+ 		fan-supply = <&vcc12v0_sys>;
+ 		pwms = <&pwm1 0 50000 0>;
+@@ -69,7 +69,7 @@
+ &cpu_thermal {
+ 	trips {
+ 		cpu_warm: cpu_warm {
+-			temperature = <55000>;
++			temperature = <45000>;
+ 			hysteresis = <2000>;
+ 			type = "active";
+ 		};
