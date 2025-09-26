@@ -214,7 +214,7 @@ jobs:
           body: |
             ### Armbian Kernel Packages for ${{ env.LINUX_FAMILY }}
             - Usage: After extraction, install the packages (e.g. `dpkg -i *.deb`)
-            - Included: linux-dtb | linux-headers | linux-image | linux-libc-dev
+            - Included: `linux-dtb` `linux-headers` `linux-image` `linux-libc-dev`
           draft: false
           prerelease: false
 
@@ -238,7 +238,7 @@ jobs:
           body: |
             ### Armbian Kernel Packages for ${{ env.LINUX_FAMILY }}
             - Usage: After extraction, install the packages (e.g. `dpkg -i *.deb`)
-            - Included: linux-dtb | linux-headers | linux-image | linux-libc-dev
+            - Included: `linux-dtb` `linux-headers` `linux-image` `linux-libc-dev`
           draft: false
           prerelease: false
 
