@@ -113,7 +113,7 @@ jobs:
           cd "${GITHUB_WORKSPACE}/build"
           "${GITHUB_WORKSPACE}/scripts/apply_patches.sh"
           "${GITHUB_WORKSPACE}/scripts/rename_to_conf.sh"
-          cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information.patch patch/kernel/archive/rockchip64-6.16/
+          cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/rockchip64-6.16/
           cp -f ${GITHUB_WORKSPACE}/patch/T4/t4.patch patch/kernel/archive/rockchip64-6.16/
           cp -f ${GITHUB_WORKSPACE}/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-6.16/dt/
           cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-6.16/dt/
