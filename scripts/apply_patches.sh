@@ -80,6 +80,8 @@ sed -i '/display_alert/s/^/#/' config/sources/families/include/meson64_common.in
 # Fix compile atf
 sed -i 's|--no-warn-rwx-segments|-Wl,--no-warn-rwx-segments|g' lib/functions/compilation/atf.sh
 
+sed -i 's|6\.17|6.18|g' config/sources/mainline-kernel.conf.sh
+
 # Set custom version
 echo "25.11.1" > VERSION
 
