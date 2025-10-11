@@ -4,11 +4,9 @@
 echo "Copying General patches..."
 cp -f ${GITHUB_WORKSPACE}/patch/config/* config/kernel/
 cp -f ${GITHUB_WORKSPACE}/patch/boards/* config/boards/
-if [[ "${RELEASE}" == "bookworm" || "${RELEASE}" == "trixie" ]]; then
-  echo "执行完整复制（包含 install-pve）"
+if [[ "${RELEASE}" =~ ^(bookworm|trixie)$ ]]; then
   rsync -av "${GITHUB_WORKSPACE}/patch/sbin/" packages/bsp/common/usr/sbin/
 else
-  echo "排除 install-pve 进行复制"
   rsync -av --exclude='install-pve' "${GITHUB_WORKSPACE}/patch/sbin/" packages/bsp/common/usr/sbin/
 fi
 

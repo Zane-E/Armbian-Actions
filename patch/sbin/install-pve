@@ -30,7 +30,7 @@ check_env() {
   fi
 
   source /etc/os-release
-  if [[ "${VERSION_CODENAME}" != "bookworm" && "${VERSION_CODENAME}" != "trixie" ]]; then
+  if [[ ! "${VERSION_CODENAME}" =~ ^(bookworm|trixie)$ ]]; then
     error "当前系统 [\033[91m ${VERSION_CODENAME} \033[0m] 不支持！"
   fi
 
