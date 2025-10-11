@@ -35,7 +35,7 @@ check_env() {
   fi
 
   ARCH=$(uname -m)
-  if [[ "${ARCH}" != "aarch64" && "${ARCH}" != "arm64" ]]; then
+  if [[ ! "${ARCH}" =~ ^(aarch64|arm64)$ ]]; then
     error "当前架构 [\033[91m ${ARCH} \033[0m] 非 ARM64 架构！"
   fi
 }
