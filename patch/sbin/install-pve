@@ -57,7 +57,7 @@ check_select_interface() {
     done
 
   while true; do
-    read -p "$(echo -e "${OPTIONS} 请输入序号 [\033[96m 1-$((i-1)) \033[0m]: ")" SN_CHOICE
+    read -p "$(echo -e "${OPTIONS} 请输入序号 [\033[96m 1-$((i-1)) \033[0m]：")" SN_CHOICE
     SN_CHOICE=${SN_CHOICE:-1}
     if [[ "${SN_CHOICE}" =~ ^[0-9]+$ ]] && (( SN_CHOICE >= 1 && SN_CHOICE <= i-1 )); then
       NET_IF=$(echo "${NET_IF_LIST}" | sed -n "${SN_CHOICE}p")
@@ -80,7 +80,7 @@ confirm_source() {
   echo -e "${INFO} 请确认系统已更换为国内镜像软件源！"
   echo -e "${INFO} 网络环境可以稳定访问官方源，可忽略！"
   echo -e "${INFO} 图文教程参考 [\033[92m https://zhou.pp.ua \033[0m]"
-  read -p "$(echo -e "${OPTIONS} 是否已更换为国内源？[y/\033[92mN\033[0m]: ")" USE_DOMESTIC_SOURCE_CHOICE
+  read -p "$(echo -e "${OPTIONS} 是否已更换为国内源？[y/\033[92mN\033[0m]：")" USE_DOMESTIC_SOURCE_CHOICE
   USE_DOMESTIC_SOURCE_CHOICE=${USE_DOMESTIC_SOURCE_CHOICE:-N}
   if [[ "${USE_DOMESTIC_SOURCE_CHOICE}" =~ ^[Nn]$ ]]; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -93,7 +93,7 @@ confirm_source() {
     else
       error "未找到 [\033[92m armbian-apt \033[0m]，请手动更换国内源！"
     fi
-    read -p "$(echo -e "${OPTIONS} 是否进行安装？[\033[92mY\033[0m/n]: ")" CONTINUE_INSTALL_CHOICE
+    read -p "$(echo -e "${OPTIONS} 是否进行安装？[\033[92mY\033[0m/n]：")" CONTINUE_INSTALL_CHOICE
     CONTINUE_INSTALL_CHOICE=${CONTINUE_INSTALL_CHOICE:-Y}
     if [[ ! "${CONTINUE_INSTALL_CHOICE}" =~ ^[Yy]$ ]]; then
       echo -e "${INFO} 中止安装，已退出！"
@@ -108,11 +108,11 @@ backup_and_comment_sources() {
     BAK="${FILE}.bak"
     if [ -f "${FILE}" ] && [ ! -f "${BAK}" ]; then
       cp "${FILE}" "${BAK}"
-      echo -e "${STEPS} 已备份: \033[95m${BAK}\033[0m"
+      echo -e "${STEPS} 已备份：\033[95m${BAK}\033[0m"
     fi
     if [ -f "${FILE}" ]; then
       sed -i 's/^\([^#]\)/#\1/' "${FILE}"
-      echo -e "${STEPS} 已注释: \033[95m${FILE}\033[0m"
+      echo -e "${STEPS} 已注释：\033[95m${FILE}\033[0m"
     fi
   done
 
@@ -121,11 +121,11 @@ backup_and_comment_sources() {
     BAK="${FILE}.bak"
     if [ -f "${FILE}" ] && [ ! -f "${BAK}" ]; then
       cp "${FILE}" "${BAK}"
-      echo -e "${STEPS} 已备份: \033[95m${BAK}\033[0m"
+      echo -e "${STEPS} 已备份：\033[95m${BAK}\033[0m"
     fi
     if [ -f "${FILE}" ]; then
       sed -i 's/^\([^#]\)/#\1/' "${FILE}"
-      echo -e "${STEPS} 已注释: \033[95m${FILE}\033[0m"
+      echo -e "${STEPS} 已注释：\033[95m${FILE}\033[0m"
     fi
   fi
 }
@@ -145,21 +145,21 @@ setup_repositories() {
     DE) PRIMARY="${MIRRORS[DE]}"; REGION="Germany" ;;
     UNKNOWN|*) PRIMARY="${MIRRORS[DEFAULT]}"; REGION="Cloudflare" ;;
   esac
-  echo -e "${INFO} 检测到地区: \033[95m${COUNTRY}\033[0m → 首选源: \033[95m${REGION} (${PRIMARY})\033[0m"
+  echo -e "${INFO} 检测到地区：\033[95m${COUNTRY}\033[0m → 首选源：\033[95m${REGION} (${PRIMARY})\033[0m"
   MIRROR=""
   if curl -fsI -m 3 "${PRIMARY}/pxcloud/" >/dev/null 2>&1; then
     MIRROR="${PRIMARY}"
-    echo -e "${INFO} 首选源可用 → 使用: \033[95m${REGION} (${MIRROR})\033[0m"
+    echo -e "${INFO} 首选源可用 → 使用：\033[95m${REGION} (${MIRROR})\033[0m"
   else
-    echo -e "${INFO} 首选源不可用: \033[95m${PRIMARY}\033[0m"
+    echo -e "${INFO} 首选源不可用：\033[95m${PRIMARY}\033[0m"
     if [[ "${PRIMARY}" != "${MIRRORS[DEFAULT]}" ]]; then
       echo -e "${INFO} 尝试 \033[95mCloudflare\033[0m 源..."
       if curl -fsI -m 3 "${MIRRORS[DEFAULT]}/pxcloud/" >/dev/null 2>&1; then
         MIRROR="${MIRRORS[DEFAULT]}"
         REGION="Cloudflare"
-        echo -e "${INFO} \033[95mCloudflare\033[0m 源可用 → 使用: \033[95m${REGION} (${MIRROR})\033[0m"
+        echo -e "${INFO} \033[95mCloudflare\033[0m 源可用 → 使用：\033[95m${REGION} (${MIRROR})\033[0m"
       else
-        echo -e "${INFO} \033[95mCloudflare\033[0m 源不可用: \033[95m${MIRRORS[DEFAULT]}\033[0m"
+        echo -e "${INFO} \033[95mCloudflare\033[0m 源不可用：\033[95m${MIRRORS[DEFAULT]}\033[0m"
       fi
     fi
     if [[ -z "${MIRROR}" ]]; then
@@ -173,22 +173,22 @@ setup_repositories() {
             "${MIRRORS[JP]}") REGION="Japan" ;;
             "${MIRRORS[DE]}") REGION="Germany" ;;
           esac
-          echo -e "${INFO} 找到可用备用源 → 使用: \033[95m${REGION} (${MIRROR})\033[0m"
+          echo -e "${INFO} 找到可用备用源 → 使用：\033[95m${REGION} (${MIRROR})\033[0m"
           break
         else
-          echo -e "${INFO} 备用源不可用: \033[95m${SRC}\033[0m"
+          echo -e "${INFO} 备用源不可用：\033[95m${SRC}\033[0m"
         fi
       done
     fi
   fi
   [[ -z "${MIRROR}" ]] && error "所有软件源均不可用，请检查网络！"
   if curl -fsSL "${MIRROR}/pxcloud/lierfang.gpg" -o /etc/apt/trusted.gpg.d/lierfang.gpg >/dev/null 2>&1; then
-    echo -e "${STEPS} 已下载: \033[95m/etc/apt/trusted.gpg.d/lierfang.gpg\033[0m"
+    echo -e "${STEPS} 已下载：\033[95m/etc/apt/trusted.gpg.d/lierfang.gpg\033[0m"
   else
     error "下载 lierfang.gpg 失败！"
   fi
   if echo "deb ${MIRROR}/pxcloud/pxvirt ${VERSION_CODENAME} main" > /etc/apt/sources.list.d/pxvirt-sources.list; then
-    echo -e "${STEPS} 已写入: \033[95m/etc/apt/sources.list.d/pxvirt-sources.list\033[0m"
+    echo -e "${STEPS} 已写入：\033[95m/etc/apt/sources.list.d/pxvirt-sources.list\033[0m"
   else
     error "写入 pxvirt-sources.list 失败！"
   fi
@@ -237,7 +237,7 @@ cidr_to_netmask() {
 set_hostname() {
   local CURRENT_HOSTNAME NEW_HOSTNAME_CHOICE
   CURRENT_HOSTNAME=$(tr -d ' \t\n\r' < /etc/hostname)
-  read -p "$(echo -e "${OPTIONS} 自定义主机名（回车跳过）: ")" NEW_HOSTNAME_CHOICE
+  read -p "$(echo -e "${OPTIONS} 自定义主机名（回车跳过）：")" NEW_HOSTNAME_CHOICE
   if [[ -n "${NEW_HOSTNAME_CHOICE}" ]]; then
     hostnamectl set-hostname "${NEW_HOSTNAME_CHOICE}"
     echo -e "${SUCCESS} 主机名已更改为：[\e[1;32m ${NEW_HOSTNAME_CHOICE} \e[0m]"
@@ -299,7 +299,7 @@ install_pve() {
 }
 
 optimize_memory() {
-  read -p "$(echo -e "${OPTIONS} 是否进行内存优化？[\033[92mY\033[0m/n]: ")" OPTIMIZE_MEMORY_CHOICE
+  read -p "$(echo -e "${OPTIONS} 是否进行内存优化？[\033[92mY\033[0m/n]：")" OPTIMIZE_MEMORY_CHOICE
   OPTIMIZE_MEMORY_CHOICE=${OPTIMIZE_MEMORY_CHOICE:-y}
   if [[ "${OPTIMIZE_MEMORY_CHOICE}" =~ ^[Yy]$ ]]; then
     echo -e "${INFO} 开始内存优化..."
@@ -365,7 +365,7 @@ EOF
 }
 
 create_vmbr0() {
-  read -p "$(echo -e "${OPTIONS} 是否创建网桥？[\033[92mY\033[0m/n]: ")" CREATE_BRIDGE_CHOICE
+  read -p "$(echo -e "${OPTIONS} 是否创建网桥？[\033[92mY\033[0m/n]：")" CREATE_BRIDGE_CHOICE
   CREATE_BRIDGE_CHOICE=${CREATE_BRIDGE_CHOICE:-y}
 
   if [[ "${CREATE_BRIDGE_CHOICE}" =~ ^[Yy]$ ]]; then
@@ -423,11 +423,11 @@ configure_ipv6_sysctl() {
 }
 
 prompt_reboot() {
-  read -p "$(echo -e "${OPTIONS} 是否立即重启？[\033[92mY\033[0m/n]: ")" REBOOT_CHOICE
+  read -p "$(echo -e "${OPTIONS} 是否立即重启？[\033[92mY\033[0m/n]：")" REBOOT_CHOICE
   REBOOT_CHOICE=${REBOOT_CHOICE:-y}
   if [[ "${REBOOT_CHOICE}" =~ ^[Yy]$ ]]; then
     for ((i=5; i>=0; i--)); do
-      echo -ne "${STEPS} 倒计时: [ "
+      echo -ne "${STEPS} 倒计时：[ "
       for ((j=5; j>i; j--)); do echo -ne "\e[31m=\e[0m"; done
       for ((j=i; j>0; j--)); do echo -ne "\e[32m-\e[0m"; done
       echo -ne " ]\r"

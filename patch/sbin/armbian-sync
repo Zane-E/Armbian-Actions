@@ -43,7 +43,7 @@ FILES=$(curl -fsSL --retry 3 --retry-delay 1 --max-time 3 "${API_URL}" 2>/dev/nu
 
 # 打印文件列表（逐个输出）
 for SCRIPT in ${FILES}; do
-    echo -e "${INFO} 文件名: [\033[92m ${SCRIPT} \033[0m]"
+    echo -e "${INFO} 文件名：[\033[92m ${SCRIPT} \033[0m]"
 done
 
 # 确保目标目录存在
@@ -55,13 +55,13 @@ fi
 # 下载、设置执行权限并移动文件
 for SCRIPT in ${FILES}; do
     SCRIPT_URL="${BASE_URL}/${SCRIPT}"
-    echo -e "${STEPS} 正在同步文件: [\033[92m ${SCRIPT} \033[0m]"
+    echo -e "${STEPS} 正在同步文件：[\033[92m ${SCRIPT} \033[0m]"
     # 下载文件
-    curl -fsSL --retry 3 --retry-delay 1 --max-time 3 -o "${TEMP_DIR}/${SCRIPT}" "${SCRIPT_URL}" >/dev/null 2>&1 || error "下载失败: [\033[92m ${SCRIPT} \033[0m]"
+    curl -fsSL --retry 3 --retry-delay 1 --max-time 3 -o "${TEMP_DIR}/${SCRIPT}" "${SCRIPT_URL}" >/dev/null 2>&1 || error "下载失败：[\033[92m ${SCRIPT} \033[0m]"
     # 设置执行权限
-    chmod +x "${TEMP_DIR}/${SCRIPT}" || error "设置权限失败: [\033[92m ${SCRIPT} \033[0m]"
+    chmod +x "${TEMP_DIR}/${SCRIPT}" || error "设置权限失败：[\033[92m ${SCRIPT} \033[0m]"
     # 移动到目标目录，覆盖原有文件
-    mv -f "${TEMP_DIR}/${SCRIPT}" "${TARGET_DIR}/" || error "移动失败: [\033[92m ${SCRIPT} \033[0m]"
+    mv -f "${TEMP_DIR}/${SCRIPT}" "${TARGET_DIR}/" || error "移动失败：[\033[92m ${SCRIPT} \033[0m]"
 done
 
 echo -e "${SUCCESS} 文件同步完成！"

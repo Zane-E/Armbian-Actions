@@ -55,8 +55,8 @@ backup_source_list() {
 
 # 更改系统的软件源
 change_source_list() {
-    echo -e "${STEPS} 开始更改系统软件源: [\033[92m ${MIRROR_URL} \033[0m]"
-    echo -e "${INFO} 系统版本: [\033[92m ${VERSION_CODENAME} \033[0m]"
+    echo -e "${STEPS} 开始更改系统软件源：[\033[92m ${MIRROR_URL} \033[0m]"
+    echo -e "${INFO} 系统版本：[\033[92m ${VERSION_CODENAME} \033[0m]"
     case "${VERSION_CODENAME}" in
     buster)
         cat >${source_file} <<EOF
@@ -130,7 +130,7 @@ EOF
         ;;
 
     *)
-        error_msg "未检测到系统版本: [ ${VERSION_CODENAME} ]"
+        error_msg "未检测到系统版本：[ ${VERSION_CODENAME} ]"
         ;;
 
     esac
@@ -162,7 +162,7 @@ EOF
 # 选择镜像站点
 select_mirror_site() {
     source_id="${1}"
-    echo -e "${INFO} 您选择的源对应序号: [\033[92m ${source_id} \033[0m]"
+    echo -e "${INFO} 您选择的源对应序号：[\033[92m ${source_id} \033[0m]"
 
     case "${source_id}" in
     0)
@@ -215,7 +215,7 @@ echo -e "${SN} [\033[96m 5 \033[0m] -> [\033[92m 阿里云 \033[0m]"
 echo -e "${SN} [\033[96m 6 \033[0m] -> [\033[92m 退出 \033[0m]"
 
 while true; do
-    echo -ne "${OPTIONS} 请输入序号 [\033[96m 0-6 \033[0m]: "
+    echo -ne "${OPTIONS} 请输入序号 [\033[96m 0-6 \033[0m]："
     read mwid
     if [[ "${mwid}" =~ ^[0-9]+$ ]] && [[ "${mwid}" -ge 0 && "${mwid}" -le 6 ]]; then
         if [[ "${mwid}" -eq 6 ]]; then
