@@ -27,17 +27,16 @@ API_URL="https://api.github.com/repos/Zane-E/Armbian-Actions/contents/patch/sbin
 
 # 读取系统版本信息
 source /etc/os-release
+ARCH=$(uname -m)
 
 # 获取脚本文件的名称
 SCRIPT_NAME=$(basename "${0}")
 
 # 使用 curl 获取 JSON 文件列表
 echo -e "${STEPS} 正在获取文件列表..."
-if [[ "${VERSION_CODENAME}" != "bookworm" && "${VERSION_CODENAME}" != "trixie" ]]; then
-    FILES=$(curl -fsSL --retry 3 --retry-delay 1 --max-time 3 "${API_URL}" 2>/dev/null | jq -r --arg SCRIPT_NAME "${SCRIPT_NAME}" '.[] | select(.name != $SCRIPT_NAME and .name != "install-pve") | .name') || error "获取文件列表失败！"
-else
-    FILES=$(curl -fsSL --retry 3 --retry-delay 1 --max-time 3 "${API_URL}" 2>/dev/null | jq -r --arg SCRIPT_NAME "${SCRIPT_NAME}" '.[] | select(.name != $SCRIPT_NAME) | .name') || error "获取文件列表失败！"
-fi
+FILTER='.[] | select(.name != $SCRIPT_NAME'
+[[ ! ${VERSION_CODENAME} =~ ^(bookworm|trixie)$ || ! ${ARCH} =~ ^(aarch64|arm64)$ ]] && FILTER+=' and .name != "install-pve"'
+FILES=$(curl -fsSL --retry 3 --retry-delay 1 --max-time 3 "${API_URL}" 2>/dev/null | jq -r --arg SCRIPT_NAME "${SCRIPT_NAME}" "${FILTER}) | .name") || error "获取文件列表失败！"
 
 # 检查文件列表是否为空
 [[ -z "${FILES}" ]] && error "文件列表为空！" || echo -e "${SUCCESS} 获取文件列表成功！"
