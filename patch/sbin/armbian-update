@@ -189,8 +189,8 @@ check_and_install_kernel() {
             for i in "${!KERNEL_FILES[@]}"; do
                 echo -e "${SN} [\033[96m $((i+1)) \033[0m] -> [\033[92m ${KERNEL_FILES[$i]} \033[0m]"
             done
+            echo -e "${INFO} 本地文件，请自行校验 SHA256 !"
             while true; do
-                echo -e "${INFO} 本地文件，请自行校验 SHA256 !"
                 read -p "$(echo -e "${OPTIONS} 请输入序号 [\033[96m 1-${#KERNEL_FILES[@]} \033[0m]：")" CHOICE
                 if [[ "${CHOICE}" -ge 1 && "${CHOICE}" -le ${#KERNEL_FILES[@]} ]]; then
                     KERNEL_FILE="${KERNEL_FILES[$((CHOICE-1))]}"
