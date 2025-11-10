@@ -150,7 +150,6 @@ jobs:
         run: |
           "${GITHUB_WORKSPACE}/scripts/apply_patches.sh"
           "${GITHUB_WORKSPACE}/scripts/rename_to_conf.sh"
-          ls -la
 
       - name: Compile Armbian [ ${{ inputs.BOARD }} ${{ inputs.BRANCH }} ${{ inputs.RELEASE }} ]
         working-directory: /mnt/workdir/build
@@ -245,6 +244,7 @@ jobs:
               base_name=$(echo "${f}" | sed -E 's/_.*//')
               newf="${base_name}-${{ env.KERNEL_VERSION }}.deb"
               if [ "${f}" != "${newf}" ]; then
+                echo "Renaming: ${f} → ${newf}"
                 mv "${f}" "${newf}"
               fi
               renamed_files+=("${newf}")
@@ -256,7 +256,7 @@ jobs:
             ls -1 "/mnt/workdir/build/output/debs"
             exit 1
           fi
-          tar -tzf "../kernel-${{ env.KERNEL_VERSION }}-${{ env.LINUX_FAMILY }}.tar.gz" || { echo "Failed to verify tar.gz file"; exit 1; }
+          tar -tzf "../kernel-${{ env.KERNEL_VERSION }}-${{ env.LINUX_FAMILY }}.tar.gz" > /dev/null || { echo "Failed to verify tar.gz file"; exit 1; }
 
       - name: Upload Kernel to Release
         if: ${{ inputs.UPLOAD_DEB_PACKAGES == 'yes' }}

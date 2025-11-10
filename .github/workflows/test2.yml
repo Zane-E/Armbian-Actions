@@ -125,7 +125,6 @@ jobs:
           "${GITHUB_WORKSPACE}/scripts/rename_to_conf.sh"
           sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|' lib/functions/configuration/main-config.sh
           sed -i "s|tag:v6\.18-rc[1-7]|tag:v6\.18-rc${{ inputs.RC_VERSION }}|" config/sources/mainline-kernel.conf.sh
-          ls -la
 
       - name: Compile Kernel [ ${{ inputs.LinuxFamily }} ${{ inputs.BRANCH }} ]
         working-directory: /mnt/workdir/build
@@ -164,6 +163,7 @@ jobs:
               base_name=$(echo "${f}" | sed -E 's/_.*//')
               newf="${base_name}-${KERNEL_VERSION}.deb"
               if [ "${f}" != "${newf}" ]; then
+                echo "Renaming: ${f} → ${newf}"
                 mv "${f}" "${newf}"
               fi
               renamed_files+=("${newf}")
@@ -175,7 +175,7 @@ jobs:
             ls -1 "/mnt/workdir/build/output/debs"
             exit 1
           fi
-          tar -tzf "../kernel-${KERNEL_VERSION}-${LINUX_FAMILY}.tar.gz" || { echo "Failed to verify tar.gz file"; exit 1; }
+          tar -tzf "../kernel-${KERNEL_VERSION}-${LINUX_FAMILY}.tar.gz" > /dev/null || { echo "Failed to verify tar.gz file"; exit 1; }
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main

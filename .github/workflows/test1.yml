@@ -119,7 +119,6 @@ jobs:
           cp -f ${GITHUB_WORKSPACE}/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-6.17/dt/
           cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-6.17/dt/
           cp -f ${GITHUB_WORKSPACE}/patch/test/rockchip64-6.17/* patch/kernel/archive/rockchip64-6.17/
-          ls -la
 
       - name: Compile Kernel [ ${{ inputs.LinuxFamily }} ${{ inputs.BRANCH }} ]
         working-directory: /mnt/workdir/build
@@ -158,6 +157,7 @@ jobs:
               base_name=$(echo "${f}" | sed -E 's/_.*//')
               newf="${base_name}-${KERNEL_VERSION}.deb"
               if [ "${f}" != "${newf}" ]; then
+                echo "Renaming: ${f} → ${newf}"
                 mv "${f}" "${newf}"
               fi
               renamed_files+=("${newf}")
@@ -169,7 +169,7 @@ jobs:
             ls -1 "/mnt/workdir/build/output/debs"
             exit 1
           fi
-          tar -tzf "../kernel-${KERNEL_VERSION}-${LINUX_FAMILY}.tar.gz" || { echo "Failed to verify tar.gz file"; exit 1; }
+          tar -tzf "../kernel-${KERNEL_VERSION}-${LINUX_FAMILY}.tar.gz" > /dev/null || { echo "Failed to verify tar.gz file"; exit 1; }
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
