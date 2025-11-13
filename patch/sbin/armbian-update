@@ -95,10 +95,17 @@ list_all_versions() {
         (( num_lines > max_lines )) && max_lines=$num_lines
     done
     for i in $(seq 1 "${max_lines}"); do
+        col_index=0
         printf "${VERSION}"
         for column in "${columns[@]}"; do
             version=$(sed -n "${i}p" <<< "${column}")
-            printf "\033[92m %-${max_width}s\033[0m" "${version:-}"
+            ((col_index++))
+          if (( col_index % 2 == 1 )); then
+            color="92"  # 奇数列颜色
+          else
+            color="95"  # 偶数列颜色
+          fi
+          printf "\033[${color}m %-${max_width}s\033[0m" "${version:-}"
         done
         echo
     done
