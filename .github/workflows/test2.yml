@@ -198,7 +198,6 @@ jobs:
         working-directory: /mnt/workdir/build/output
         run: |
           sleep 15 && "${GITHUB_WORKSPACE}/scripts/sha256.sh"
-          ls -la
 
       - name: Upload SHA256 to Release
         uses: ncipollo/release-action@main
