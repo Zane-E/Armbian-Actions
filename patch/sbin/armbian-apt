@@ -215,8 +215,9 @@ echo -e "${SN} [\033[96m 5 \033[0m] -> [\033[92m 阿里云 \033[0m]"
 echo -e "${SN} [\033[96m 6 \033[0m] -> [\033[92m 退出 \033[0m]"
 
 while true; do
-    echo -ne "${OPTIONS} 请输入序号 [\033[96m 0-6 \033[0m]："
+    echo -ne "${OPTIONS} 请输入序号 [\033[96m 0-6 \033[0m] [ 回车默认 \033[96m1\033[0m ]："
     read mwid
+    [[ -z "$mwid" ]] && mwid=1
     if [[ "${mwid}" =~ ^[0-9]+$ ]] && [[ "${mwid}" -ge 0 && "${mwid}" -le 6 ]]; then
         if [[ "${mwid}" -eq 6 ]]; then
             echo -e "${INFO} 已退出选择！"
