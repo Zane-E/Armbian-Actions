@@ -73,6 +73,7 @@ sed -i '252{/else/s/^/#/}' lib/functions/cli/utils-cli.sh
 sed -i '253{/display_alert/s/^/#/}' lib/functions/cli/utils-cli.sh
 sed -i '272{/display_alert/s/^/#/}' lib/functions/cli/utils-cli.sh
 sed -i '398{/display_alert/s/^/#/}' lib/functions/main/config-prepare.sh
+sed -i '/display_alert/s/^/#/' config/sources/families/include/meson64_common.inc
 
 # Set custom version
 echo "25.11.1" > VERSION
