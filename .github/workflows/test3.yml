@@ -1,4 +1,4 @@
-name: TEST rk35xx-flippy
+name: TEST rk35xx
 
 on:
   workflow_dispatch:
@@ -17,6 +17,14 @@ on:
         type: choice
         options:
           - 'vendor'
+      KERNEL_REPO:
+        description: 'Github Repository'
+        default: 'armbian'
+        required: true
+        type: choice
+        options:
+          - 'armbian'
+          - 'flippy'
 
 env:
   TZ: Asia/Shanghai
@@ -109,12 +117,15 @@ jobs:
         run: |
           "${GITHUB_WORKSPACE}/scripts/apply_patches.sh"
           "${GITHUB_WORKSPACE}/scripts/rename_to_conf.sh"
+
+      - name: Patch flippy kernel sources
+        if: ${{ inputs.KERNEL_REPO == 'flippy' }}
+        working-directory: /mnt/workdir/build
+        run: |
           sed -i 's|rk-6\.1-rkr5\.1|main|' config/sources/families/rk35xx.conf
           sed -i 's|rk-6\.1-rkr5\.1|main|' config/sources/families/rockchip-rk3588.conf
           sed -i 's|https://github.com/armbian/linux-rockchip.git|https://github.com/unifreq/linux-6.1.y-rockchip.git|g' config/sources/families/rk35xx.conf
           sed -i 's|https://github.com/armbian/linux-rockchip.git|https://github.com/unifreq/linux-6.1.y-rockchip.git|g' config/sources/families/rockchip-rk3588.conf
-          # sed -i 's|rkr5\.1|rkr6.1|' patch/kernel/rk35xx-vendor-6.1/0000.patching_config.yaml
-          # sed -i 's|v6\.1\.99|v6.1.141|' patch/kernel/rk35xx-vendor-6.1/0000.patching_config.yaml
 
       - name: Compile Kernel [ ${{ inputs.LinuxFamily }} ${{ inputs.BRANCH }} ]
         working-directory: /mnt/workdir/build
@@ -126,7 +137,8 @@ jobs:
             rk35xx)     BoardFamily="rock-5c" ;;
             meson)      BoardFamily="onecloud" ;;
           esac
-          ./compile.sh kernel BOARD=${BoardFamily} BRANCH=${{ inputs.BRANCH }} PREFER_DOCKER=no DOCKER_ARMBIAN_BASE_IMAGE=ubuntu:noble DEB_COMPRESS=xz EXTRAWIFI=no SHARE_LOG=yes
+          [ "${{ inputs.KERNEL_REPO }}" = "flippy" ] && EXTRA_ARGS="EXTRAWIFI=no DISABLE_KERNEL_PATCHES=yes" || EXTRA_ARGS=""
+          ./compile.sh kernel BOARD=${BoardFamily} BRANCH=${{ inputs.BRANCH }} PREFER_DOCKER=no DOCKER_ARMBIAN_BASE_IMAGE=ubuntu:noble DEB_COMPRESS=xz SHARE_LOG=yes ${EXTRA_ARGS}
 
       - name: Prepare Kernel Metadata
         working-directory: /mnt/workdir/build/output/debs
@@ -139,7 +151,7 @@ jobs:
             echo "KERNEL_VERSION=${KERNEL_VERSION}" >> ${GITHUB_ENV}
             echo "KERNEL_VERSION: ${KERNEL_VERSION}"
             LINUX_FAMILY=$(echo "${Kernel_File}" | cut -d '_' -f 1 | awk -F '-' '{print $NF}')
-            LINUX_FAMILY="${LINUX_FAMILY}-flippy"
+            [ "${{ inputs.KERNEL_REPO }}" = "flippy" ] && LINUX_FAMILY="${LINUX_FAMILY}-flippy"
             echo "LINUX_FAMILY=${LINUX_FAMILY}" >> ${GITHUB_ENV}
             echo "LINUX_FAMILY: ${LINUX_FAMILY}"
           else
