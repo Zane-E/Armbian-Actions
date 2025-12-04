@@ -304,7 +304,7 @@ check_and_set_kernel_version() {
 }
 
 OPTERR=0
-while getopts "k:lhuf:n:p:" opt; do
+while getopts "k:lhu:f:n:p:" opt; do
     case ${opt} in
         k)
             validate_version_format "${OPTARG}" || exit 1
