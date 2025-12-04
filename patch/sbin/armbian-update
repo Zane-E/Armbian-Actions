@@ -36,14 +36,15 @@ LINUXFAMILY=$(grep "^LINUXFAMILY=" ${release_file} | cut -d'=' -f2) || error "�
 
 # 显示用法
 usage() {
-    echo -e "${INFO} 使用方法：[-k <version>] [-u <repo>] [-l] [-n <num>] [-p <prefix>] [-h]"
+    echo -e "${INFO} 使用方法：[-k <version>] [-u <repo>] [-f <linuxfamily>] [-l] [-n <num>] [-p <prefix>] [-h]"
     echo -e "${INFO} 参数说明："
-    echo -e "${INFO}   -k <version>   指定要安装的内核版本，格式为 x.y.z"
-    echo -e "${INFO}   -u <repo>      指定 GitHub 仓库"
-    echo -e "${INFO}   -l             显示仓库内核版本列表 (Top${VERSION_TOP}) ，可组合以下参数："
-    echo -e "${INFO}     -p <prefix>    主版本号，例如 6.15 ，多版本请用空格分隔并加引号，例如 \"6.15 6.16\""
-    echo -e "${INFO}     -n <num>       列表数量，例如 10"
-    echo -e "${INFO}   -h             显示此帮助信息"
+    echo -e "${INFO}   -k <version>       指定要安装的内核版本，格式为 x.y.z"
+    echo -e "${INFO}   -u <repo>          指定 GitHub 仓库"
+    echo -e "${INFO}   -f <linuxfamily>   指定内核类型，慎用"
+    echo -e "${INFO}   -l                 显示仓库内核版本列表 (Top${VERSION_TOP}) ，可组合以下参数："
+    echo -e "${INFO}     -p <prefix>        主版本号，例如 6.15 ，多版本请用空格分隔并加引号，例如 \"6.15 6.16\""
+    echo -e "${INFO}     -n <num>           列表数量，例如 10"
+    echo -e "${INFO}   -h                 显示此帮助信息"
     exit 0
 }
 
@@ -303,7 +304,7 @@ check_and_set_kernel_version() {
 }
 
 OPTERR=0
-while getopts "k:lhu:n:p:" opt; do
+while getopts "k:lhuf:n:p:" opt; do
     case ${opt} in
         k)
             validate_version_format "${OPTARG}" || exit 1
@@ -331,6 +332,9 @@ while getopts "k:lhu:n:p:" opt; do
             ;;
         u)
             GITHUB_REPO="${OPTARG}"
+            ;;
+        f)
+            LINUXFAMILY="${OPTARG}"
             ;;
         h)
             usage
