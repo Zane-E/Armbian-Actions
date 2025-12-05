@@ -10,6 +10,12 @@ else
   rsync -a --quiet --exclude='install-pve' "${GITHUB_WORKSPACE}/patch/sbin/" packages/bsp/common/usr/sbin/
 fi
 
+# Flippy BRANCH
+if [[ "${BRANCH}" =~ ^(flippy)$ ]]; then
+  cp -rf ${GITHUB_WORKSPACE}/patch/test/flippy/families/* config/sources/families/
+  cp -r ${GITHUB_WORKSPACE}/patch/test/flippy/config/* config/kernel/
+fi
+
 # T4 Patches
 echo "Copying T4 patches..."
 cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/rockchip64-6.18/
