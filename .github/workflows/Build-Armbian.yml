@@ -207,10 +207,27 @@ jobs:
             ls -1 "/mnt/workdir/build/output/debs"
             exit 1
           fi
+          exclude_prefixes=("linux-dtb" "linux-headers" "linux-image" "linux-libc")
+          for file in *.deb; do
+            [[ -f "${file}" ]] || continue
+            skip=0
+            for prefix in "${exclude_prefixes[@]}"; do
+              if [[ "${file}" == ${prefix}* ]]; then
+                skip=1
+                break
+              fi
+            done
+            [[ $skip -eq 1 ]] && continue
+            base="${file%%_*}"
+            newname="${base}-${{ env.VERSION }}.deb"
+            [[ "${file}" == "${newname}" ]] && continue
+            echo "Renaming: ${file}  →  ${newname}"
+            mv "${file}" "${newname}"
+          done
           tar -czf "../${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}.tar.gz" \
               --exclude=linux-dtb* --exclude=linux-headers* --exclude=linux-image* --exclude=linux-libc* * || { echo "Failed to create tar.gz file"; exit 1; }
           echo "Compressed matching files to ${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}.tar.gz"
-          tar -tzf "../${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}.tar.gz" || { echo "Failed to verify tar.gz file"; exit 1; }
+          tar -tzf "../${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}.tar.gz" > /dev/null || { echo "Failed to verify tar.gz file"; exit 1; }
 
       - name: Upload Debs to Release
         if: ${{ inputs.UPLOAD_DEB_PACKAGES == 'yes' }}
