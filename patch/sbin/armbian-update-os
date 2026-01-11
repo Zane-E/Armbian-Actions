@@ -218,6 +218,7 @@ while getopts "k:" opt; do
     esac
 done
 
+echo -e "${INFO} 当前系统信息：[\033[92m ${BOARD} \033[0m] [\033[92m ${VERSION_CODENAME} \033[0m] [\033[92m ${OS_BRANCH} \033[0m]"
 echo -e "${INFO} 当前系统版本：[\033[92m ${ARMBIAN_VERSION} \033[0m]"
 [[ "${SKIP_FILE_CHECK}" != true ]] && check_and_install_file
 check_and_set_os_version

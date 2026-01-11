@@ -221,7 +221,7 @@ jobs:
             base="${file%%_*}"
             newname="${base}-${{ env.VERSION }}.deb"
             [[ "${file}" == "${newname}" ]] && continue
-            echo "Renaming: ${file}  →  ${newname}"
+            echo "Renaming: ${file} → ${newname}"
             mv "${file}" "${newname}"
           done
           tar -czf "../${{ env.VERSION }}_${{ inputs.BOARD }}_${{ inputs.RELEASE }}_${{ inputs.BRANCH }}.tar.gz" \
