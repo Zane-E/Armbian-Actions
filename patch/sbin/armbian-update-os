@@ -170,8 +170,8 @@ install_all_debs() {
             echo -e "${SUCCESS} 依赖修复成功！"
             echo -e "${STEPS} 重新安装：[\033[92m ${deb} \033[0m]"
             dpkg -i "${deb}" >/dev/null 2>&1 || error "重新安装失败！"
-        else
-            echo -e "${SUCCESS} 安装成功!"
+        # else
+            # echo -e "${SUCCESS} 安装成功!"
         fi
     done
     echo -e "${SUCCESS} 所有文件安装完成！"
