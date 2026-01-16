@@ -57,9 +57,9 @@
 - 补全 **cpuinfo** 中的 **model name** 信息
 - **Aml-s9xx-box** 固件默认适配 **斐讯 N1 盒子** ( 直接解压写入 U 盘即可 ) ，写入 **EMMC** 脚本在 /root 目录
 - 新增命令工具：
-  - `armbian-apt` `armbian-update` `armbian-sync`
-    - [功能截图](https://github.com/Zane-E/Armbian-Actions/blob/main/screenshot/screenshot.png)
-    - 用于换源 / 更换内核 / 同步脚本
+  - `armbian-apt` `armbian-update` `armbian-update-os` `armbian-sync`
+    - [功能截图 1](https://github.com/Zane-E/Armbian-Actions/blob/main/screenshot/screenshot1.png) [功能截图 2](https://github.com/Zane-E/Armbian-Actions/blob/main/screenshot/screenshot2.png)
+    - 用于换源 / 更换内核 / 更换版本 / 同步脚本
   - `install-pve` [ `bookworm → Pxvirt 8` `trixie → Pxvirt 9` ]
     - [安装截图](https://github.com/Zane-E/Armbian-Actions/blob/main/screenshot/install-pve.png)
     - 在 **Armbian (ARM64)** 系统上快捷安装 **Pxvirt (Proxmox VE)**

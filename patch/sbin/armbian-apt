@@ -10,6 +10,12 @@ debian_source_backup_file="/etc/apt/sources.list.d/debian.sources.bak"
 ubuntu_source_file="/etc/apt/sources.list.d/ubuntu.sources"
 ubuntu_source_backup_file="/etc/apt/sources.list.d/ubuntu.sources.bak"
 
+armbian_source_file="/etc/apt/sources.list.d/armbian.sources"
+armbian_source_backup_file="/etc/apt/sources.list.d/armbian.sources.bak"
+
+armbian_config_source_file="/etc/apt/sources.list.d/armbian-config.sources"
+armbian_config_source_backup_file="/etc/apt/sources.list.d/armbian-config.sources.bak"
+
 # 获取固件信息
 release_file="/etc/os-release"
 
@@ -22,7 +28,7 @@ ERROR="[\033[91m 错误 \033[0m]"
 SN="[\033[96m 序号 \033[0m]"
 
 # 错误处理
-error_msg() {
+error() {
     echo -e "${ERROR} ${1}"
     exit 1
 }
@@ -33,10 +39,10 @@ check_release() {
         source "${release_file}"
         VERSION_CODEID="${ID}"
         VERSION_CODENAME="${VERSION_CODENAME}"
-        [[ -z "${VERSION_CODEID}" ]] && error_msg "未检测到系统的 VERSION_CODEID！"
-        [[ -z "${VERSION_CODENAME}" ]] && error_msg "未检测到系统的 VERSION_CODENAME！"
+        [[ -z "${VERSION_CODEID}" ]] && error "未检测到系统的 VERSION_CODEID！"
+        [[ -z "${VERSION_CODENAME}" ]] && error "未检测到系统的 VERSION_CODENAME！"
     else
-        error_msg "未检测到系统的 release 文件！"
+        error "未检测到系统的 release 文件！"
     fi
 }
 
@@ -50,6 +56,12 @@ backup_source_list() {
     }
     [[ -f "${ubuntu_source_file}" && ! -f "${ubuntu_source_backup_file}" ]] && {
         cp -f "${ubuntu_source_file}" "${ubuntu_source_backup_file}"
+    }
+    [[ -f "${armbian_source_file}" && ! -f "${armbian_source_backup_file}" ]] && {
+        cp -f "${armbian_source_file}" "${armbian_source_backup_file}"
+    }
+    [[ -f "${armbian_config_source_file}" && ! -f "${armbian_config_source_backup_file}" ]] && {
+        cp -f "${armbian_config_source_file}" "${armbian_config_source_backup_file}"
     }
 }
 
@@ -130,7 +142,7 @@ EOF
         ;;
 
     *)
-        error_msg "未检测到系统版本：[ ${VERSION_CODENAME} ]"
+        error "未检测到系统版本：[ ${VERSION_CODENAME} ]"
         ;;
 
     esac
@@ -198,13 +210,8 @@ select_mirror_site() {
     change_source_list
 }
 
-# 检查系统版本
-check_release
-
-# 备份软件源列表
-backup_source_list
-
-# 提示用户输入源对应数字
+# 软件源管理
+system_source_manage() {
 echo -e "${INFO} 请选择适用于 [\033[92m ${VERSION_CODENAME} \033[0m] 的镜像软件源！"
 echo -e "${SN} [\033[96m 0 \033[0m] -> [\033[92m 恢复默认软件源 \033[0m]"
 echo -e "${SN} [\033[96m 1 \033[0m] -> [\033[92m 高校联合•自动选择 \033[0m]"
@@ -230,3 +237,54 @@ while true; do
         echo -e "${ERROR} 无效选择，重新输入！"
     fi
 done
+}
+
+# 注释 armbian 源
+disable_armbian_source() {
+    [[ ! -f "${armbian_source_file}" ]] && {
+        error "未找到 Armbian 源文件：${armbian_source_file}"
+    }
+    echo -ne "${OPTIONS} 是否注释 Armbian 源？[\033[92mY\033[0m/n]："
+    read -r choice
+    case "${choice}" in
+        [nN])
+            echo -e "${INFO} 保持当前状态，不进行注释！"
+            ;;
+        *)
+            if ! grep -q '^[^#]' "${armbian_source_file}"; then
+                echo -e "${INFO} Armbian 源已注释，无需修改！"
+                return 0
+            fi
+            sed -i 's/^[^#]/#&/' "${armbian_source_file}"
+            echo -e "${INFO} 已注释 Armbian 源！"
+            ;;
+    esac
+}
+
+# 注释 armbian-config 源
+disable_armbian_config_source() {
+    [[ ! -f "${armbian_config_source_file}" ]] && {
+        error "未找到 Armbian-config 源文件：${armbian_config_source_file}"
+    }
+    echo -ne "${OPTIONS} 是否注释 Armbian-config 源？[\033[92mY\033[0m/n]："
+    read -r choice
+    case "${choice}" in
+        [nN])
+            echo -e "${INFO} 保持当前状态，不进行注释！"
+            ;;
+        *)
+            if ! grep -q '^[^#]' "${armbian_config_source_file}"; then
+                echo -e "${INFO} Armbian-config 源已注释，无需修改！"
+                return 0
+            fi
+            sed -i 's/^[^#]/#&/' "${armbian_config_source_file}"
+            echo -e "${INFO} 已注释 Armbian-config 源！"
+            ;;
+    esac
+}
+
+check_release
+backup_source_list
+system_source_manage
+disable_armbian_source
+disable_armbian_config_source
