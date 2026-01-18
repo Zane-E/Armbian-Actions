@@ -6,7 +6,7 @@
 
 ## 📦 内核配置
 - 默认支持 **eBPF**，兼容 **DAE 代理**
-- 适配平台：`meson64`、`rockchip64`、`rk35xx`
+- 适配平台：`meson64` `rockchip64` `rk35xx`
 
 ---
 

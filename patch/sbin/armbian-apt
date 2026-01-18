@@ -197,7 +197,7 @@ select_mirror_site() {
             rm -f "${source_backup_file}" "${source_file}"
             echo -e "${SUCCESS} 成功恢复 [\033[92m ${VERSION_CODENAME} \033[0m] 默认源！"
         fi
-        exit 0
+        return 0
         ;;
     1) MIRROR_URL="mirrors.cernet.edu.cn" ;;        # 高校联合•自动选择
     2) MIRROR_URL="mirrors.ustc.edu.cn" ;;          # 中国科学技术大学
