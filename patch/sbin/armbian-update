@@ -225,6 +225,7 @@ check_and_install_kernel() {
         read -p "$(echo -e "${OPTIONS} 是否删除内核文件？[\033[92mY\033[0m/n]：")" DELETE_CHOICE
         DELETE_CHOICE=${DELETE_CHOICE:-y}
         [[ "${DELETE_CHOICE}" =~ ^[Yy]$ ]] && rm -f "${KERNEL_FILE}"
+        [[ "${LINUXFAMILY}" =~ ^(rockchip64|rk35xx)$ ]] && clean_boot_old_files
         reboot_system
     fi
 }
@@ -301,6 +302,45 @@ check_and_set_kernel_version() {
   else
     echo -e "${INFO} 指定内核版本：[\033[92m ${KERNEL_VERSION} \033[0m]"
   fi
+}
+
+# 清理遗留文件
+clean_boot_old_files() {
+    local boot_dir="/boot"
+    local dtb_link
+    dtb_link=$(readlink -f "${boot_dir}/dtb")
+    if [[ -z "${dtb_link}" ]]; then
+      echo -e "${ERROR} 未找到 /boot/dtb 链接！"
+      return 0
+    fi
+    local current_version_now
+    current_version_now=$(basename "${dtb_link}" | sed 's/dtb-//')
+    # echo -e "${INFO} 当前活动内核版本：[\033[92m ${current_version_now} \033[0m]"
+    echo -e "${INFO} 开始清理旧版本文件..."
+    cd "${boot_dir}" || {
+      echo -e "${ERROR} 无法进入 /boot，跳过清理！"
+      return 0
+    }
+    local patterns=(
+      "initrd.img-*"
+      "uInitrd-*"
+      "vmlinuz-*"
+      "System.map-*"
+      "config-*"
+      "dtb-*"
+    )
+    for pattern in "${patterns[@]}"; do
+      for f in ${pattern}; do
+        [[ "${f}" == "${pattern}" ]] && continue
+          if [[ "${f}" == *"${current_version_now}"* ]]; then
+            echo -e "${INFO} 保留：[\033[92m ${f} \033[0m]"
+          else
+            echo -e "${INFO} 删除：[\033[91m ${f} \033[0m]"
+            rm -rf "${f}"
+          fi
+      done
+    done
+    echo -e "${SUCCESS} 清理完成！"
 }
 
 OPTERR=0
@@ -385,6 +425,9 @@ install_kernel_packages
 
 # 删除临时目录
 cleanup_temp_dir
+
+# 清理遗留文件
+[[ "${LINUXFAMILY}" =~ ^(rockchip64|rk35xx)$ ]] && clean_boot_old_files
 
 # 提示重启系统
 reboot_system
