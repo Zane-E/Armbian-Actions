@@ -71,8 +71,7 @@ if [[ "${BRANCH}" =~ ^(legacy)$ ]]; then
 		declare -g KERNEL_MAJOR_MINOR="6.12"\
 		;;
 		}' config/sources/families/include/meson64_common.inc
-  cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-1.patch patch/kernel/archive/meson64-6.12/
-  cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-2.patch patch/kernel/archive/meson64-6.12/
+  cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-*.patch patch/kernel/archive/meson64-6.12/
 
   sed -i '0,/case \$BRANCH in/{
 	/case \$BRANCH in/a\
@@ -87,6 +86,7 @@ if [[ "${BRANCH}" =~ ^(legacy)$ ]]; then
   cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-6.12/dt/
   cp -f ${GITHUB_WORKSPACE}/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-6.12/dt/
   cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-6.12/dt/
+  cp -f ${GITHUB_WORKSPACE}/patch/test/legacy/rockchip64/* patch/kernel/archive/rockchip64-6.12/
   rm -f patch/kernel/archive/rockchip64-6.12/board-pbp-add-dp-alt-mode.patch
   cp -f ${GITHUB_WORKSPACE}/patch/test/legacy/config/* config/kernel/
 fi
@@ -106,10 +106,8 @@ cp -f ${GITHUB_WORKSPACE}/patch/5C/diyfan.patch patch/kernel/rk35xx-vendor-6.1/
 
 # N1 Patches
 echo "Copying N1 patches..."
-cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-1.patch patch/kernel/archive/meson64-6.18/
-cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-2.patch patch/kernel/archive/meson64-6.18/
-cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-1.patch patch/kernel/archive/meson64-6.19/
-cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-2.patch patch/kernel/archive/meson64-6.19/
+cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-*.patch patch/kernel/archive/meson64-6.18/
+cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-*.patch patch/kernel/archive/meson64-6.19/
 cp -f ${GITHUB_WORKSPACE}/patch/N1/u-boot.ext config/optional/boards/aml-s9xx-box/_packages/bsp-cli/boot/
 
 # X2 Patches
