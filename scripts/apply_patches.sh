@@ -72,6 +72,7 @@ if [[ "${BRANCH}" =~ ^(legacy)$ ]]; then
 		;;
 		}' config/sources/families/include/meson64_common.inc
   cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-*.patch patch/kernel/archive/meson64-6.12/
+  rm -f patch/kernel/archive/meson64-6.12/general-meson-mmc-2-arm64-amlogic-dts-meson-update-meson-axg-device-tree.patch
 
   sed -i '0,/case \$BRANCH in/{
 	/case \$BRANCH in/a\
@@ -88,6 +89,7 @@ if [[ "${BRANCH}" =~ ^(legacy)$ ]]; then
   cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-6.12/dt/
   cp -f ${GITHUB_WORKSPACE}/patch/test/legacy/rockchip64/* patch/kernel/archive/rockchip64-6.12/
   rm -f patch/kernel/archive/rockchip64-6.12/board-pbp-add-dp-alt-mode.patch
+  rm -f patch/kernel/archive/rockchip64-6.12/rk3308-i2s-default-rate.patch
   cp -f ${GITHUB_WORKSPACE}/patch/test/legacy/config/* config/kernel/
 fi
 
