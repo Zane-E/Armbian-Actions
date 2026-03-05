@@ -113,7 +113,7 @@ cp -f ${GITHUB_WORKSPACE}/patch/5T/diyfan-5t.patch patch/kernel/rk35xx-vendor-6.
 # N1 Patches
 echo "Copying N1 patches..."
 cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-*.patch patch/kernel/archive/meson64-6.18/
-cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-*.patch patch/kernel/archive/meson64-6.19/
+cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-*.patch patch/kernel/archive/meson64-7.0/
 cp -f ${GITHUB_WORKSPACE}/patch/N1/u-boot.ext config/optional/boards/aml-s9xx-box/_packages/bsp-cli/boot/
 
 # X2 Patches
