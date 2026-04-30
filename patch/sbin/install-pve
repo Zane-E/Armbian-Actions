@@ -211,10 +211,10 @@ setup_repositories() {
   COUNTRY=$(curl -fsS --max-time 3 https://ipinfo.io/country 2>/dev/null || echo "UNKNOWN")
   COUNTRY=${COUNTRY:-UNKNOWN}
   declare -A MIRRORS
-  MIRRORS[CN]="https://download.lierfang.com"
+  MIRRORS[CN]="https://ah1.mirrors.lierfang.com:8000"
   MIRRORS[JP]="https://jp.mirrors.lierfang.com"
   MIRRORS[DE]="https://de.mirrors.lierfang.com"
-  MIRRORS[DEFAULT]="https://mirrors.apqa.cn"
+  MIRRORS[DEFAULT]="https://mirrors.lierfang.com"
   case "${COUNTRY}" in
     CN) PRIMARY="${MIRRORS[CN]}"; REGION="China" ;;
     JP) PRIMARY="${MIRRORS[JP]}"; REGION="Japan" ;;
