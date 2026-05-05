@@ -13,11 +13,11 @@ on:
           - 'rockchip64'
       BRANCH:
         description: 'Linux Branch'
-        default: 'edge'
+        default: 'bleedingedge'
         required: true
         type: choice
         options:
-          - 'edge'
+          - 'bleedingedge'
       RC_VERSION:
         description: 'Build RC Version'
         default: '1'
@@ -43,13 +43,17 @@ on:
       CPUTHREADS:
         description: 'CPU Therads'
         default: '4'
-        required: true
+        required: false
         type: choice
         options:
           - '1'
           - '2'
           - '3'
           - '4'
+      PR:
+        description: 'Enter the PR number to build'
+        required: false
+        type: string
 
 env:
   TZ: Asia/Shanghai
@@ -106,8 +110,17 @@ jobs:
         working-directory: /mnt/workdir
         run: |
           df -hT ${PWD}
-          git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build build
+          git clone -q --branch=main https://github.com/armbian/build build
           ln -sf /mnt/workdir/build ${GITHUB_WORKSPACE}/build
+          if echo "${{ inputs.PR }}" | grep -Eq '^[0-9]+$'; then
+            cd ${GITHUB_WORKSPACE}/build
+            git config --global user.name "GitHub Actions"
+            git config --global user.email "actions@github.com"
+            git fetch origin pull/${{ inputs.PR }}/head:pr-branch
+            git merge pr-branch --no-ff --strategy=recursive -X theirs -m "Merge PR #${{ inputs.PR }} into main"
+          else
+            echo "PR is empty or not numeric, skip merge."
+          fi
 
       - name: Apply patches
         working-directory: /mnt/workdir/build
@@ -116,6 +129,15 @@ jobs:
           "${GITHUB_WORKSPACE}/scripts/rename_to_conf.sh"
           sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|g' lib/functions/configuration/main-config.sh
           sed -i "s|7\.1-rc[1-8]|7\.1-rc${{ inputs.RC_VERSION }}|g" config/sources/mainline-kernel.conf.sh
+
+          # meson64
+          cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1-2.patch patch/kernel/archive/meson64-7.1/ || true
+
+          # rockchip64
+          cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/rockchip64-7.1/ || true
+          cp -f ${GITHUB_WORKSPACE}/patch/T4/t4.patch patch/kernel/archive/rockchip64-7.1/ || true
+          cp -f ${GITHUB_WORKSPACE}/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-7.1/dt/ || true
+          cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-7.1/dt/ || true
 
       - name: Compile Kernel [ ${{ inputs.LinuxFamily }} ${{ inputs.BRANCH }} ] [ rc${{ inputs.RC_VERSION }} ]
         working-directory: /mnt/workdir/build
