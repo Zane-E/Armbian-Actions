@@ -158,11 +158,15 @@ sed -i 's|IMAGE_TYPE=user-built|IMAGE_TYPE=stable|g' lib/functions/main/config-p
 # Change the maximum frequency of RK3566 from 1800000 to 1992000
 sed -i 's|1800000|1992000|g' config/sources/families/include/rockchip64_common.inc
 
+# Append TZ environment variable to Docker (e.g. Asia/Shanghai)
+sed -i '/"--env" "TERM=\${TERM}"/a\		"--env" "TZ=${TZ:-Asia/Shanghai}"' lib/functions/host/docker.sh
+
 # Remove Actions warnings
 sed -i '252{/else/s/^/#/}' lib/functions/cli/utils-cli.sh
 sed -i '253{/display_alert/s/^/#/}' lib/functions/cli/utils-cli.sh
 sed -i '272{/display_alert/s/^/#/}' lib/functions/cli/utils-cli.sh
 sed -i '383{/display_alert/s/^/#/}' lib/functions/main/config-prepare.sh
+[ ! -d userpatches/extensions ] && mkdir -p userpatches/extensions
 
 # Set custom version automatically based on date
 # Format: YY.MM.1 (e.g., 25.11.1)
