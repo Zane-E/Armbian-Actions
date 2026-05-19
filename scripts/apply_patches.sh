@@ -166,6 +166,7 @@ sed -i '252{/else/s/^/#/}' lib/functions/cli/utils-cli.sh
 sed -i '253{/display_alert/s/^/#/}' lib/functions/cli/utils-cli.sh
 sed -i '272{/display_alert/s/^/#/}' lib/functions/cli/utils-cli.sh
 sed -i '383{/display_alert/s/^/#/}' lib/functions/main/config-prepare.sh
+sed -i '/display_alert "ORAS manifest fetch error"/c\		:' lib/functions/general/oci-oras.sh
 [ ! -d userpatches/extensions ] && mkdir -p userpatches/extensions
 
 # Set custom version automatically based on date
