@@ -1,0 +1,620 @@
+#!/bin/bash
+
+# ==============================================================================
+#  脚本名称：armbian-update
+#  脚本功能：从 GitHub Release 下载或安装本地 Armbian 内核包
+# ==============================================================================
+
+set -o pipefail
+
+readonly ARMBIAN_RELEASE_FILE="/etc/armbian-release"
+GITHUB_REPO="Zane-E/Armbian-Actions"
+readonly VERSION_PREFIXES_DEFAULT="6.1 6.12 6.18 7.0 7.1"
+readonly VERSION_PREFIXES_ALL="6.1 6.12 6.15 6.16 6.17 6.18 6.19 7.0 7.1"
+VERSION_PREFIXES="${VERSION_PREFIXES_DEFAULT}"
+VERSION_TOP="5"
+readonly -a PROXIES=("gh-proxy.com" "ghproxy.net" "ghfast.top")
+
+readonly STEPS="[\033[95m 步骤 \033[0m]"
+readonly INFO="[\033[94m 信息 \033[0m]"
+readonly SUCCESS="[\033[92m 成功 \033[0m]"
+readonly OPTIONS="[\033[93m 选项 \033[0m]"
+readonly ERROR="[\033[91m 错误 \033[0m]"
+readonly VERSION="[\033[96m 版本 \033[0m]"
+readonly SN="[\033[96m 序号 \033[0m]"
+
+CURRENT_KERNEL=""
+KERNEL_FILE=""
+KERNEL_VERSION=""
+LINUXFAMILY=""
+ORIGINAL_DIR=""
+PROXY_URL=""
+SHOW_VERSIONS=false
+SKIP_KERNEL_CHECK=false
+TEMP_DIR=""
+
+log_error() {
+    echo -e "${ERROR} ${1}"
+}
+
+die() {
+    log_error "${1}"
+    exit 1
+}
+
+error() {
+    die "${1}"
+}
+
+require_command() {
+    command -v "${1}" >/dev/null 2>&1 || error "缺少依赖命令：[\033[92m ${1} \033[0m]"
+}
+
+check_grep_pcre() {
+    echo "1.2.3" | grep -oP '^[0-9]+\.[0-9]+' >/dev/null 2>&1 ||
+        error "当前 grep 不支持 -P 参数，请安装 GNU grep！"
+}
+
+check_dependencies() {
+    local cmd
+    local required_commands=(apt-get awk basename curl cut dpkg dpkg-query find grep head id mktemp readlink reboot rm sed sha256sum shuf sleep sort tail tar tr uniq uname wc)
+
+    for cmd in "${required_commands[@]}"; do
+        require_command "${cmd}"
+    done
+
+    check_grep_pcre
+}
+
+check_root() {
+    [[ "$(id -u)" -eq 0 ]] || error "请使用 root 用户运行！"
+}
+
+prompt_yes_no() {
+    local prompt="${1}"
+    local default="${2:-y}"
+    local choice
+
+    read -r -p "$(echo -e "${prompt}")" choice
+    choice="${choice:-${default}}"
+    [[ "${choice}" =~ ^[Yy]$ ]]
+}
+
+usage() {
+    echo -e "${INFO} 使用方法：[-k <version>] [-u <owner/repo>] [-f] [-l] [-p <prefix>] [-n <num>] [-h]"
+    echo -e "${INFO} 参数说明："
+    echo -e "${INFO}   -k <version>    指定要安装的内核版本，格式为：x.y.z ，例如：6.12.1"
+    echo -e "${INFO}   -u <owner/repo> 指定 GitHub 仓库，格式为：用户名/仓库名，例如：Zane-E/Armbian-Actions"
+    echo -e "${INFO}   -f              指定 flippy 内核，慎用"
+    echo -e "${INFO}   -l              显示仓库内核版本列表 (Top${VERSION_TOP}) ，可组合以下参数："
+    echo -e "${INFO}     -p <prefix>     主版本号，例如：6.15 ，多版本请用空格分隔并加引号，例如：\"6.15 6.16\" 或全部 all"
+    echo -e "${INFO}     -n <num>        列表数量，例如：10"
+    echo -e "${INFO}   -h              显示此帮助信息"
+    exit 0
+}
+
+validate_version_format() {
+    [[ "${1}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+        error "版本号格式不正确：[\033[91m ${1} \033[0m]，请使用 x.y.z 的格式，例如：6.12.1"
+}
+
+load_kernel_family() {
+    [[ -f "${ARMBIAN_RELEASE_FILE}" ]] || error "未找到 ${ARMBIAN_RELEASE_FILE} 文件！"
+
+    LINUXFAMILY=$(grep "^LINUXFAMILY=" "${ARMBIAN_RELEASE_FILE}" 2>/dev/null | cut -d'=' -f2) ||
+        error "未能成功获取内核类型，请检查 ${ARMBIAN_RELEASE_FILE} 文件！"
+    [[ -n "${LINUXFAMILY}" ]] || error "内核类型为空，请检查 ${ARMBIAN_RELEASE_FILE} 文件！"
+}
+
+get_latest_version() {
+    local current_major_minor
+    local fallback_versions
+    local filtered_versions
+    local versions
+
+    current_major_minor=$(echo "${CURRENT_KERNEL}" | grep -oP '^[0-9]+\.[0-9]+')
+    versions=$(fetch_text "https://github.com/${GITHUB_REPO}/releases/expanded_assets/Kernel-${LINUXFAMILY}" 2>/dev/null) ||
+        error "无法访问 GITHUB，检查网络连接！"
+
+    filtered_versions=$(echo "${versions}" |
+        grep -oP '>kernel-\K[0-9]+\.[0-9]+\.[0-9]+-('"${LINUXFAMILY}"')\.tar\.gz<' |
+        grep "^${current_major_minor}\." |
+        grep -oP '[0-9]+\.[0-9]+\.[0-9]+')
+
+    if [[ -n "${filtered_versions}" ]]; then
+        echo "${filtered_versions}" | sort -V | tail -n 1
+        return 0
+    fi
+
+    echo -e "${INFO} 未找到与主版本 [\033[92m ${current_major_minor} \033[0m] 相符的内核！" >&2
+    fallback_versions=$(echo "${versions}" |
+        grep -oP '>kernel-\K[0-9]+\.[0-9]+\.[0-9]+-('"${LINUXFAMILY}"')\.tar\.gz<' |
+        grep -oP '[0-9]+\.[0-9]+\.[0-9]+')
+
+    [[ -n "${fallback_versions}" ]] || error "没有可用的内核版本！"
+    echo "${fallback_versions}" | sort -V | tail -n 1 | tr -d '\n\r '
+}
+
+list_all_versions() {
+    local all_versions
+    local color
+    local col_index
+    local column
+    local columns=()
+    local filtered_versions
+    local i
+    local max_lines=0
+    local max_width=0
+    local num_lines
+    local version
+    local version_prefix
+    local versions
+
+    versions=$(fetch_text "https://github.com/${GITHUB_REPO}/releases/expanded_assets/Kernel-${LINUXFAMILY}" 2>/dev/null) ||
+        error "无法访问 GITHUB，检查网络连接！"
+
+    filtered_versions=$(echo "${versions}" |
+        grep -oP '>kernel-\K[0-9]+\.[0-9]+\.[0-9]+-('"${LINUXFAMILY}"')\.tar\.gz<')
+    [[ -n "${filtered_versions}" ]] || error "未找到匹配的内核版本！"
+
+    all_versions=$(echo "${filtered_versions}" | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | sort -Vr | uniq)
+    [[ -n "${all_versions}" ]] || error "无法列出匹配的内核版本！"
+
+    for version_prefix in ${VERSION_PREFIXES}; do
+        column=$(echo "${all_versions}" | grep "^${version_prefix}\." | head -n "${VERSION_TOP}")
+        [[ -n "${column}" ]] && columns+=("${column}")
+    done
+
+    if [[ ${#columns[@]} -eq 0 ]]; then
+        echo -e "${INFO} 未找到与主版本 [\033[92m ${VERSION_PREFIXES} \033[0m] 相符的内核！"
+        exit 0
+    fi
+
+    for column in "${columns[@]}"; do
+        for version in ${column}; do
+            (( ${#version} > max_width )) && max_width=${#version}
+        done
+        num_lines=$(wc -l <<< "${column}")
+        (( num_lines > max_lines )) && max_lines=${num_lines}
+    done
+
+    for ((i = 1; i <= max_lines; i++)); do
+        col_index=0
+        printf "%b" "${VERSION}"
+        for column in "${columns[@]}"; do
+            version=$(sed -n "${i}p" <<< "${column}")
+            ((col_index++))
+            if (( col_index % 2 == 1 )); then
+                color="92"
+            else
+                color="95"
+            fi
+            printf "\033[%sm %-${max_width}s\033[0m" "${color}" "${version:-}"
+        done
+        echo
+    done
+}
+
+uninstall_linux_libc_dev() {
+    local arch
+    local arch_list=("arm64" "armhf")
+
+    for arch in "${arch_list[@]}"; do
+        if dpkg-query -W -f='${Status}' "linux-libc-dev:${arch}" 2>/dev/null | grep -q "installed"; then
+            echo -e "${INFO} 检测到已安装：[\033[92m linux-libc-dev:${arch} \033[0m]"
+            echo -e "${STEPS} 正在卸载..."
+            apt-get remove -y "linux-libc-dev:${arch}" >/dev/null 2>&1 ||
+                error "卸载失败：[\033[92m linux-libc-dev:${arch} \033[0m]"
+        fi
+    done
+}
+
+create_temp_dir() {
+    ORIGINAL_DIR=$(pwd)
+    TEMP_DIR=$(mktemp -d)
+    [[ -d "${TEMP_DIR}" ]] || error "无法创建临时目录！"
+    trap cleanup_temp_dir EXIT
+    echo -e "${STEPS} 创建临时目录：[\033[92m ${TEMP_DIR} \033[0m]"
+}
+
+cleanup_temp_dir() {
+    trap - EXIT
+    [[ -n "${ORIGINAL_DIR}" && -d "${ORIGINAL_DIR}" ]] && cd "${ORIGINAL_DIR}" >/dev/null 2>&1 || true
+    [[ -n "${TEMP_DIR}" && -d "${TEMP_DIR}" ]] || return 0
+    rm -rf "${TEMP_DIR}"
+    TEMP_DIR=""
+    echo -e "${SUCCESS} 临时目录已删除！"
+}
+
+download_file() {
+    local output_file="${1}"
+    local url="${2}"
+
+    curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 5 --max-time 300 \
+        -o "${output_file}" "${url}" >/dev/null 2>&1
+}
+
+fetch_text() {
+    local url="${1}"
+
+    curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 5 --max-time 30 "${url}"
+}
+
+url_available() {
+    local url="${1}"
+    local max_time="${2:-3}"
+
+    curl -fIsL --retry 2 --retry-delay 1 --connect-timeout 3 --max-time "${max_time}" "${url}" >/dev/null 2>&1
+}
+
+find_package_file() {
+    local pkg="${1}"
+
+    find . -maxdepth 1 -name "${pkg}*.deb" -exec basename {} \; 2>/dev/null | sort -V | tail -n 1
+}
+
+require_kernel_image_package() {
+    local deb_file
+
+    deb_file=$(find_package_file "linux-image")
+    [[ -n "${deb_file}" ]] || error "未找到：[\033[92m linux-image \033[0m]"
+}
+
+install_package() {
+    local deb_file
+    local pkg="${1}"
+
+    deb_file=$(find_package_file "${pkg}")
+    if [[ -z "${deb_file}" ]]; then
+        echo -e "${STEPS} 未检测到：[\033[92m ${pkg} \033[0m] 文件，已跳过！"
+        return 1
+    fi
+
+    if dpkg -i "${deb_file}" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    echo -e "${ERROR} 安装失败！"
+    echo -e "${STEPS} 正在修复依赖..."
+    apt-get update >/dev/null 2>&1 && apt-get -f install -y >/dev/null 2>&1 ||
+        error "修复依赖失败，请检查相关依赖和文件是否存在！"
+    echo -e "${SUCCESS} 依赖修复成功！"
+    echo -e "${STEPS} 重新安装：[\033[92m ${pkg} \033[0m]"
+    dpkg -i "${deb_file}" >/dev/null 2>&1 || error "重新安装 [\033[92m ${pkg} \033[0m] 失败！"
+    return 0
+}
+
+install_kernel_packages() {
+    local has_kernel_image=false
+    local pkg
+
+    require_kernel_image_package
+
+    for pkg in linux-libc-dev linux-headers linux-image linux-dtb; do
+        echo -e "${STEPS} 正在安装：[\033[92m ${pkg} \033[0m]"
+        if install_package "${pkg}"; then
+            [[ "${pkg}" == "linux-image" ]] && has_kernel_image=true
+        fi
+    done
+
+    [[ "${has_kernel_image}" == true ]] || error "未安装：[\033[92m linux-image \033[0m]"
+    echo -e "${SUCCESS} 所有文件已安装！"
+}
+
+reboot_system() {
+    if prompt_yes_no "${OPTIONS} 是否立即重启系统？[\033[92mY\033[0m/n]：" "y"; then
+        for ((i = 5; i >= 0; i--)); do
+            echo -ne "${STEPS} 倒计时：[ "
+            for ((j = 5; j > i; j--)); do echo -ne "\e[31m=\e[0m"; done
+            for ((j = i; j > 0; j--)); do echo -ne "\e[32m-\e[0m"; done
+            echo -ne " ]\r"
+            sleep 1
+        done
+        echo -e "\n${INFO} 重启中..."
+        reboot
+    else
+        echo -e "${INFO} 请手动重启系统以使更改生效！"
+    fi
+
+    exit 0
+}
+
+check_and_install_kernel() {
+    local choice
+    local exit_num
+    local kernel_files
+
+    mapfile -t kernel_files < <(find . -maxdepth 1 -name "kernel-*-${LINUXFAMILY}.tar.gz" -exec basename {} \; | sort -Vr)
+    [[ ${#kernel_files[@]} -gt 0 ]] || return 0
+
+    if [[ ${#kernel_files[@]} -eq 1 ]]; then
+        KERNEL_FILE="${kernel_files[0]}"
+        echo -e "${INFO} 发现内核文件：[\033[92m ${KERNEL_FILE} \033[0m]"
+        echo -e "${INFO} 本地文件，请自行校验文件！"
+        prompt_yes_no "${OPTIONS} 是否安装内核？[\033[92mY\033[0m/n]：" "y" ||
+            { echo -e "${INFO} 您选择不安装！"; exit 0; }
+    else
+        echo -e "${INFO} 发现内核文件:"
+        for i in "${!kernel_files[@]}"; do
+            echo -e "${SN} [\033[96m $((i + 1)) \033[0m] -> [\033[92m ${kernel_files[$i]} \033[0m]"
+        done
+
+        exit_num=$(( ${#kernel_files[@]} + 1 ))
+        echo -e "${SN} [\033[96m ${exit_num} \033[0m] -> [\033[92m 退出 \033[0m]"
+        echo -e "${INFO} 本地文件，请自行校验文件！"
+
+        while true; do
+            read -r -p "$(echo -e "${OPTIONS} 请输入序号 [\033[96m 1-${exit_num} \033[0m]：")" choice
+            if [[ "${choice}" =~ ^[0-9]+$ ]]; then
+                if [[ "${choice}" -eq "${exit_num}" ]]; then
+                    echo -e "${INFO} 已退出选择！"
+                    exit 0
+                fi
+                if [[ "${choice}" -ge 1 && "${choice}" -le ${#kernel_files[@]} ]]; then
+                    KERNEL_FILE="${kernel_files[$((choice - 1))]}"
+                    break
+                fi
+            fi
+            echo -e "${ERROR} 选择无效，请重新输入！"
+        done
+    fi
+
+    create_temp_dir
+    tar -xzf "${KERNEL_FILE}" -C "${TEMP_DIR}" || error "解压失败，请检查文件！"
+    echo -e "${SUCCESS} 解压文件完成！"
+    cd "${TEMP_DIR}" || error "无法进入临时目录：${TEMP_DIR}"
+    require_kernel_image_package
+    uninstall_linux_libc_dev
+    install_kernel_packages
+    cleanup_temp_dir
+
+    if prompt_yes_no "${OPTIONS} 是否删除内核文件？[\033[92mY\033[0m/n]：" "y"; then
+        rm -f "${KERNEL_FILE}"
+    fi
+
+    [[ "${LINUXFAMILY}" =~ ^(rockchip64|rk35xx)$ ]] && clean_boot_old_files
+    reboot_system
+}
+
+handle_proxy() {
+    local index
+    local proxy_url
+    local shuffled_indices
+
+    if ! prompt_yes_no "${OPTIONS} 是否使用代理下载？[y/\033[92mN\033[0m]：" "n"; then
+        PROXY_URL=""
+        echo -e "${INFO} 使用直连下载！"
+        return 0
+    fi
+
+    mapfile -t shuffled_indices < <(shuf -i "0-$(( ${#PROXIES[@]} - 1 ))" -n "${#PROXIES[@]}")
+    for index in "${shuffled_indices[@]}"; do
+        proxy_url="https://${PROXIES[$index]}/"
+        echo -e "${INFO} 尝试代理加速：[\033[92m ${PROXIES[$index]} \033[0m]"
+        if url_available "${proxy_url}" 3; then
+            PROXY_URL="${proxy_url}"
+            echo -e "${SUCCESS} 代理加速可用！"
+            return 0
+        fi
+    done
+
+    echo -e "${ERROR} 代理加速失效！"
+    prompt_yes_no "${OPTIONS} 是否尝试直连？[\033[92mY\033[0m/n]：" "y" ||
+        { echo -e "${INFO} 放弃尝试，退出脚本！"; exit 0; }
+
+    PROXY_URL=""
+    echo -e "${INFO} 使用直连下载！"
+}
+
+download_kernel_package() {
+    local actual_sha
+    local archive_name
+    local download_sha_url
+    local download_url
+    local expected_sha
+
+    archive_name="kernel-${KERNEL_VERSION}-${LINUXFAMILY}.tar.gz"
+    download_url="${PROXY_URL}https://github.com/${GITHUB_REPO}/releases/download/Kernel-${LINUXFAMILY}/${archive_name}"
+    download_sha_url="${PROXY_URL}https://github.com/${GITHUB_REPO}/releases/download/Kernel-${LINUXFAMILY}/sha256.txt"
+
+    cd "${TEMP_DIR}" || error "无法进入临时目录：${TEMP_DIR}"
+
+    echo -e "${STEPS} 正在下载文件：[\033[92m ${KERNEL_VERSION}-${LINUXFAMILY} \033[0m]"
+    download_file "${archive_name}" "${download_url}" ||
+        error "下载失败，请检查版本号或网络连接！"
+
+    echo -e "${STEPS} 正在下载文件：[\033[92m sha256.txt \033[0m]"
+    download_file "sha256.txt" "${download_sha_url}" ||
+        error "下载失败，请检查版本号或网络连接！"
+
+    echo -e "${SUCCESS} 下载完成！"
+
+    expected_sha=$(awk -v name="${archive_name}" '
+        $1 == name {
+            print $2
+            exit
+        }
+        {
+            file = $2
+            sub(/^\*/, "", file)
+            if (file == name) {
+                print $1
+                exit
+            }
+        }
+    ' sha256.txt)
+    [[ -n "${expected_sha}" ]] || error "sha256.txt 中未找到对应版本条目！"
+
+    actual_sha=$(sha256sum "${archive_name}" | awk '{print $1}')
+    if [[ "${expected_sha}" != "${actual_sha}" ]]; then
+        echo -e "${ERROR} 校验失败！"
+        echo -e "${INFO} 预期值：[\033[92m ${expected_sha} \033[0m]"
+        echo -e "${INFO} 实际值：[\033[92m ${actual_sha} \033[0m]"
+        exit 1
+    fi
+
+    echo -e "${SUCCESS} 校验通过！"
+    tar -xzf "${archive_name}" && rm -f "${archive_name}" || error "解压失败，请检查压缩文件！"
+    echo -e "${SUCCESS} 解压完成！"
+}
+
+check_and_set_kernel_version() {
+    local latest_version
+
+    if [[ -n "${KERNEL_VERSION}" ]]; then
+        echo -e "${INFO} 指定内核版本：[\033[92m ${KERNEL_VERSION} \033[0m]"
+        return 0
+    fi
+
+    latest_version=$(get_latest_version) || error "无法获取最新的 Linux 内核版本！"
+    [[ "${latest_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+        error "获取到的最新版本号格式错误：${latest_version}！"
+
+    echo -e "${INFO} 最新内核版本：[\033[92m ${latest_version} \033[0m]"
+    if [[ "${CURRENT_KERNEL}" == "${latest_version}" ]]; then
+        echo -e "${INFO} 您的系统已是最新内核版本！"
+        exit 0
+    fi
+
+    if [[ "$(printf '%s\n' "${CURRENT_KERNEL}" "${latest_version}" | sort -V | tail -n 1)" == "${CURRENT_KERNEL}" ]]; then
+        echo -e "${INFO} 当前内核版本高于仓库最新版本，无需更新！"
+        exit 0
+    fi
+
+    prompt_yes_no "${OPTIONS} 检测到新版本，是否更新？[\033[92mY\033[0m/n]：" "y" ||
+        { echo -e "${INFO} 您选择不更新！"; exit 0; }
+
+    KERNEL_VERSION="${latest_version}"
+    echo -e "${INFO} 您选择更新到最新版本：[\033[92m ${KERNEL_VERSION} \033[0m]"
+}
+
+clean_boot_old_files() {
+    local boot_dir="/boot"
+    local current_version_now
+    local dtb_link
+    local file
+    local pattern
+    local patterns=(
+        "initrd.img-*"
+        "uInitrd-*"
+        "vmlinuz-*"
+        "System.map-*"
+        "config-*"
+        "dtb-*"
+    )
+
+    dtb_link=$(readlink -f "${boot_dir}/dtb")
+    if [[ -z "${dtb_link}" ]]; then
+        echo -e "${ERROR} 未找到 /boot/dtb 链接！"
+        return 0
+    fi
+
+    current_version_now=$(basename "${dtb_link}" | sed 's/dtb-//')
+    echo -e "${INFO} 开始清理旧版本文件..."
+
+    cd "${boot_dir}" || {
+        echo -e "${ERROR} 无法进入 /boot，跳过清理！"
+        return 0
+    }
+
+    for pattern in "${patterns[@]}"; do
+        for file in ${pattern}; do
+            [[ "${file}" == "${pattern}" ]] && continue
+            if [[ "${file}" == *"${current_version_now}"* ]]; then
+                echo -e "${INFO} 保留：[\033[92m ${file} \033[0m]"
+            else
+                echo -e "${INFO} 删除：[\033[91m ${file} \033[0m]"
+                rm -rf "${file}"
+            fi
+        done
+    done
+
+    echo -e "${SUCCESS} 清理完成！"
+}
+
+normalize_words() {
+    local words=()
+
+    read -r -a words <<< "${1}"
+    printf "%s" "${words[*]}"
+}
+
+parse_args() {
+    OPTERR=0
+    while getopts "k:lfhu:n:p:" opt; do
+        case "${opt}" in
+            k)
+                validate_version_format "${OPTARG}"
+                KERNEL_VERSION="${OPTARG}"
+                SKIP_KERNEL_CHECK=true
+                ;;
+            l)
+                SHOW_VERSIONS=true
+                ;;
+            n)
+                if [[ "${OPTARG}" =~ ^[0-9]+$ && "${OPTARG}" -gt 0 ]]; then
+                    VERSION_TOP="${OPTARG}"
+                else
+                    error "参数 -n 需要一个大于 0 的整数，例如：10"
+                fi
+                ;;
+            p)
+                OPTARG=$(normalize_words "${OPTARG}")
+                [[ -n "${OPTARG}" ]] || error "参数 -p 不能为空！"
+                if [[ "${OPTARG}" == "all" ]]; then
+                    VERSION_PREFIXES="${VERSION_PREFIXES_ALL}"
+                else
+                    for prefix in ${OPTARG}; do
+                        [[ "${prefix}" =~ ^[0-9]+\.[0-9]+$ ]] ||
+                            error "参数 -p 需要主版本号，例如：6.15 ，多版本请用空格分隔并加引号，例如：\"6.15 6.16\" 或全部 all"
+                    done
+                    VERSION_PREFIXES="${OPTARG}"
+                fi
+                ;;
+            u)
+                [[ "${OPTARG}" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] ||
+                    error "仓库格式错误！正确格式为：用户名/仓库名，例如：Zane-E/Armbian-Actions"
+                GITHUB_REPO="${OPTARG}"
+                ;;
+            f)
+                LINUXFAMILY="${LINUXFAMILY}-flippy"
+                ;;
+            h|*)
+                usage
+                ;;
+        esac
+    done
+}
+
+main() {
+    check_dependencies
+    load_kernel_family
+    parse_args "$@"
+
+    if [[ "${SHOW_VERSIONS}" == true ]]; then
+        list_all_versions
+        exit 0
+    fi
+
+    echo -e "${INFO} 系统内核类型：[\033[92m ${LINUXFAMILY} \033[0m]"
+
+    CURRENT_KERNEL=$(uname -r | cut -d'-' -f1)
+    echo -e "${INFO} 当前内核版本：[\033[92m ${CURRENT_KERNEL} \033[0m]"
+
+    check_root
+
+    [[ "${SKIP_KERNEL_CHECK}" == true ]] || check_and_install_kernel
+
+    check_and_set_kernel_version
+    handle_proxy
+    create_temp_dir
+    download_kernel_package
+    require_kernel_image_package
+    uninstall_linux_libc_dev
+    install_kernel_packages
+    cleanup_temp_dir
+    [[ "${LINUXFAMILY}" =~ ^(rockchip64|rk35xx)$ ]] && clean_boot_old_files
+    reboot_system
+}
+
+main "$@"

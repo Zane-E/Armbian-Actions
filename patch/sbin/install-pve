@@ -1,0 +1,644 @@
+#!/bin/bash
+
+# ==============================================================================
+#  脚本名称：install-pve
+#  适用架构：ARM64 (aarch64/arm64)
+#  脚本功能：Armbian ARM64 系统安装 Pxvirt (Proxmox VE)
+#  适用系统：Debian 12 (bookworm) -> Pxvirt 8 | Debian 13 (trixie) -> Pxvirt 9
+#  功能说明：配置国内源、添加 Pxvirt 源、内存占用优化、配置网络与 IPv6 参数
+#  教程链接：https://zhou.pp.ua
+# ==============================================================================
+
+set -o pipefail
+
+readonly STEPS="[\033[95m 步骤 \033[0m]"
+readonly INFO="[\033[94m 信息 \033[0m]"
+readonly SUCCESS="[\033[92m 成功 \033[0m]"
+readonly OPTIONS="[\033[93m 选项 \033[0m]"
+readonly ERROR="[\033[91m 错误 \033[0m]"
+readonly SN="[\033[96m 序号 \033[0m]"
+
+ADDR_INFO=""
+ARCH=""
+CIDR=""
+GATEWAY=""
+IP_ADDR=""
+MAC_ADDR=""
+NET_IF=""
+NET_IF_LIST=""
+NETMASK=""
+NETMASK_DECIMAL=""
+SCRIPT_DIR=""
+VERSION_CODENAME=""
+
+log_error() {
+    echo -e "${ERROR} ${1}"
+}
+
+die() {
+    log_error "${1}"
+    exit 1
+}
+
+error() {
+    die "${1}"
+}
+
+require_command() {
+    command -v "${1}" >/dev/null 2>&1 || error "缺少依赖命令：[\033[92m ${1} \033[0m]"
+}
+
+check_dependencies() {
+    local cmd
+    local required_commands=(apt-get awk cat chmod cp curl cut dirname grep head id ip reboot rm sed sleep sort systemctl tr uname wc)
+
+    for cmd in "${required_commands[@]}"; do
+        require_command "${cmd}"
+    done
+}
+
+prompt_yes_no() {
+    local prompt="${1}"
+    local default="${2:-y}"
+    local choice
+
+    read -r -p "$(echo -e "${prompt}")" choice
+    choice="${choice:-${default}}"
+    [[ "${choice}" =~ ^[Yy]$ ]]
+}
+
+download_file() {
+    local output_file="${1}"
+    local url="${2}"
+
+    curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 5 --max-time 60 \
+        -o "${output_file}" "${url}" >/dev/null 2>&1
+}
+
+fetch_text() {
+    local url="${1}"
+    local max_time="${2:-5}"
+
+    curl -fsSL --retry 2 --retry-delay 1 --connect-timeout 3 --max-time "${max_time}" "${url}"
+}
+
+url_available() {
+    local url="${1}"
+    local max_time="${2:-3}"
+
+    curl -fIsL --retry 2 --retry-delay 1 --connect-timeout 3 --max-time "${max_time}" "${url}" >/dev/null 2>&1
+}
+
+check_env() {
+    [[ "$(id -u)" -eq 0 ]] || error "请使用 root 用户运行！"
+    [[ -f /etc/os-release ]] || error "未找到 /etc/os-release 文件！"
+
+    # shellcheck disable=SC1091
+    source /etc/os-release
+
+    [[ "${VERSION_CODENAME}" =~ ^(bookworm|trixie)$ ]] ||
+        error "当前系统 [\033[91m ${VERSION_CODENAME} \033[0m] 不支持！"
+
+    ARCH=$(uname -m)
+    [[ "${ARCH}" =~ ^(aarch64|arm64)$ ]] ||
+        error "当前架构 [\033[91m ${ARCH} \033[0m] 非 ARM64 架构！"
+}
+
+is_bridge_or_member() {
+    ip -d link show "${1}" | grep -Eq "bridge|brport"
+}
+
+is_wireless() {
+    [[ -d "/sys/class/net/${1}/wireless" ]] ||
+        [[ -e /proc/net/wireless && $(awk -v iface="${1}:" '$1 == iface {print $1}' /proc/net/wireless) ]]
+}
+
+check_select_interface() {
+    local color
+    local comment
+    local iface
+    local i
+    local idx
+    local ip_addr
+    local mark
+    local selectable
+    local sn_choice
+    local valid_if_list=()
+    local valid_index=()
+
+    NET_IF_LIST=$(ip route | awk '/^default/ {for (i = 1; i <= NF; i++) if ($i == "dev") print $(i + 1)}' | sort -u)
+    [[ -n "${NET_IF_LIST}" ]] || error "未找到默认网络接口，请检查网络配置！"
+
+    if [[ $(echo "${NET_IF_LIST}" | wc -l) -gt 1 ]]; then
+        echo -e "${OPTIONS} 检测到多个默认网络接口，请选择："
+        i=1
+        for iface in ${NET_IF_LIST}; do
+            ip_addr=$(ip -4 addr show "${iface}" | awk '/inet /{print $2}' | cut -d/ -f1 | head -n 1)
+            if is_bridge_or_member "${iface}"; then
+                mark="[\033[91m x \033[0m]"
+                color="\033[91m"
+                comment="[\033[91m 桥接接口 \033[0m]"
+                selectable="no"
+            elif is_wireless "${iface}"; then
+                mark="[\033[91m x \033[0m]"
+                color="\033[91m"
+                comment="[\033[91m 无线接口 \033[0m]"
+                selectable="no"
+            else
+                mark="[\033[92m ✓ \033[0m]"
+                color="\033[92m"
+                comment="[\033[92m 有线接口 \033[0m]"
+                selectable="yes"
+            fi
+
+            echo -e "${SN} [\033[96m ${i} \033[0m] -> [${color} ${iface} - ${ip_addr:-无 IP} \033[0m] ${comment} ${mark}"
+
+            if [[ "${selectable}" == "yes" ]]; then
+                valid_if_list+=("${iface}")
+                valid_index+=("${i}")
+            fi
+            i=$((i + 1))
+        done
+
+        [[ ${#valid_if_list[@]} -gt 0 ]] || error "所有默认网络接口均不可用，请调整后重试！"
+
+        while true; do
+            read -r -p "$(echo -e "${OPTIONS} 请输入序号：")" sn_choice
+            sn_choice="${sn_choice:-1}"
+
+            for idx in "${!valid_index[@]}"; do
+                if [[ "${sn_choice}" == "${valid_index[$idx]}" ]]; then
+                    NET_IF="${valid_if_list[$idx]}"
+                    break 2
+                fi
+            done
+
+            echo -e "${ERROR} 输入无效或该接口不可使用，请重新输入！"
+        done
+    else
+        NET_IF="${NET_IF_LIST}"
+        ip_addr=$(ip -4 addr show "${NET_IF}" | awk '/inet /{print $2}' | cut -d/ -f1 | head -n 1)
+
+        is_bridge_or_member "${NET_IF}" &&
+            error "默认网络接口 [\033[91m ${NET_IF} - ${ip_addr:-无 IP} \033[0m] 属于桥接接口，请调整后重试！"
+        is_wireless "${NET_IF}" &&
+            error "默认网络接口 [\033[91m ${NET_IF} - ${ip_addr:-无 IP} \033[0m] 属于无线接口，请使用有线接口！"
+
+        echo -e "${INFO} 检测到默认网络接口：[\033[92m ${NET_IF} - ${ip_addr:-无 IP} \033[0m]"
+    fi
+}
+
+cidr_to_netmask() {
+    local cidr="${1}"
+    local full_octets
+    local i
+    local mask=""
+    local remainder
+
+    if [[ -z "${cidr}" || "${cidr}" -le 0 || "${cidr}" -gt 32 ]]; then
+        error "子网掩码位数无效！"
+    fi
+
+    full_octets=$((cidr / 8))
+    remainder=$((cidr % 8))
+
+    for ((i = 0; i < 4; i++)); do
+        if (( i < full_octets )); then
+            mask+=255
+        elif (( i == full_octets )); then
+            mask+=$((256 - 2**(8 - remainder)))
+        else
+            mask+=0
+        fi
+        [[ ${i} -lt 3 ]] && mask+=.
+    done
+
+    echo "${mask}"
+}
+
+detect_network_info() {
+    [[ -n "${NET_IF}" ]] || error "未检测到有效的网络接口！"
+
+    ADDR_INFO=$(ip -4 addr show "${NET_IF}" | awk '/inet / {print $2; exit}')
+    IP_ADDR=${ADDR_INFO%/*}
+    CIDR=${ADDR_INFO#*/}
+    GATEWAY=$(ip route | awk -v iface="${NET_IF}" '$1 == "default" && $0 ~ ("dev " iface) {print $3; exit}')
+    MAC_ADDR=$(cat "/sys/class/net/${NET_IF}/address" 2>/dev/null)
+    [[ -n "${CIDR}" ]] && NETMASK=$(cidr_to_netmask "${CIDR}")
+
+    if [[ -z "${IP_ADDR}" || -z "${GATEWAY}" || -z "${CIDR}" || -z "${NETMASK}" ]]; then
+        error "获取网络信息失败，请检查接口 ${NET_IF} 是否配置 IPv4！"
+    fi
+
+    echo -e "${INFO} 接口：\033[95m${NET_IF}\033[0m"
+    echo -e "${INFO} IPv4：\033[95m${IP_ADDR}\033[0m"
+    echo -e "${INFO} 网关：\033[95m${GATEWAY}\033[0m"
+    echo -e "${INFO} 掩码：\033[95m${NETMASK}\033[0m"
+    echo -e "${INFO} MAC ：\033[95m${MAC_ADDR}\033[0m"
+}
+
+confirm_source() {
+    echo -e "${INFO} 请确认系统已更换为国内镜像软件源！"
+    echo -e "${INFO} 网络环境可以稳定访问官方源，可忽略！"
+    echo -e "${INFO} 图文教程参考：[\033[92m https://zhou.pp.ua \033[0m]"
+
+    if prompt_yes_no "${OPTIONS} 是否已更换为国内源？[y/\033[92mN\033[0m]：" "n"; then
+        return 0
+    fi
+
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [[ -x "${SCRIPT_DIR}/armbian-apt" ]]; then
+        echo -e "${STEPS} 正在调用本地 [\033[92m armbian-apt \033[0m] 选择国内源！"
+        "${SCRIPT_DIR}/armbian-apt"
+    elif command -v armbian-apt >/dev/null 2>&1; then
+        echo -e "${STEPS} 正在调用系统 [\033[92m armbian-apt \033[0m] 选择国内源！"
+        armbian-apt
+    else
+        error "未找到 [\033[92m armbian-apt \033[0m]，请手动更换国内源！"
+    fi
+
+    prompt_yes_no "${OPTIONS} 是否进行安装？[\033[92mY\033[0m/n]：" "y" ||
+        { echo -e "${INFO} 中止安装，已退出！"; exit 0; }
+}
+
+backup_and_comment_sources() {
+    local bak
+    local file
+
+    echo -e "${INFO} 开始配置环境..."
+
+    for file in /etc/apt/sources.list.d/armbian.sources /etc/apt/sources.list.d/armbian-config.sources; do
+        bak="${file}.bak"
+        if [[ -f "${file}" && ! -f "${bak}" ]]; then
+            cp "${file}" "${bak}" || error "备份失败：${file}"
+            echo -e "${STEPS} 已备份：\033[95m${bak}\033[0m"
+        fi
+        if [[ -f "${file}" ]]; then
+            sed -i 's/^\([^#]\)/#\1/' "${file}" || error "注释失败：${file}"
+            echo -e "${STEPS} 已注释：\033[95m${file}\033[0m"
+        fi
+    done
+
+}
+
+setup_repositories() {
+    local country
+    local keyring="/etc/apt/trusted.gpg.d/lierfang.gpg"
+    local mirror=""
+    local old_source_backup_file="/etc/apt/sources.list.d/pxvirt-sources.list.bak"
+    local old_source_file="/etc/apt/sources.list.d/pxvirt-sources.list"
+    local primary
+    local region
+    local source_file="/etc/apt/sources.list.d/pxvirt.sources"
+    local src
+
+    export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+    country=$(fetch_text https://ipinfo.io/country 3 2>/dev/null || echo "UNKNOWN")
+    country=${country:-UNKNOWN}
+
+    declare -A mirrors
+    mirrors[CN]="https://ah1.mirrors.lierfang.com:8000"
+    mirrors[JP]="https://jp.mirrors.lierfang.com"
+    mirrors[DE]="https://de.mirrors.lierfang.com"
+    mirrors[DEFAULT]="https://mirrors.lierfang.com"
+
+    case "${country}" in
+        CN) primary="${mirrors[CN]}"; region="China" ;;
+        JP) primary="${mirrors[JP]}"; region="Japan" ;;
+        DE) primary="${mirrors[DE]}"; region="Germany" ;;
+        UNKNOWN|*) primary="${mirrors[DEFAULT]}"; region="Cloudflare" ;;
+    esac
+
+    echo -e "${INFO} 检测到地区：\033[95m${country}\033[0m → 首选源：\033[95m${region} (${primary})\033[0m"
+
+    if url_available "${primary}/pxcloud/" 5; then
+        mirror="${primary}"
+        echo -e "${INFO} 首选源可用 → 使用：\033[95m${region} (${mirror})\033[0m"
+    else
+        echo -e "${INFO} 首选源不可用：\033[95m${primary}\033[0m"
+        if [[ "${primary}" != "${mirrors[DEFAULT]}" ]]; then
+            echo -e "${INFO} 尝试 \033[95mCloudflare\033[0m 源..."
+            if url_available "${mirrors[DEFAULT]}/pxcloud/" 3; then
+                mirror="${mirrors[DEFAULT]}"
+                region="Cloudflare"
+                echo -e "${INFO} \033[95mCloudflare\033[0m 源可用 → 使用：\033[95m${region} (${mirror})\033[0m"
+            else
+                echo -e "${INFO} \033[95mCloudflare\033[0m 源不可用：\033[95m${mirrors[DEFAULT]}\033[0m"
+            fi
+        fi
+
+        if [[ -z "${mirror}" ]]; then
+            echo -e "${INFO} 尝试备用源..."
+            for src in "${mirrors[CN]}" "${mirrors[JP]}" "${mirrors[DE]}"; do
+                [[ "${src}" == "${primary}" ]] && continue
+                if url_available "${src}/pxcloud/" 3; then
+                    mirror="${src}"
+                    case "${src}" in
+                        "${mirrors[CN]}") region="China" ;;
+                        "${mirrors[JP]}") region="Japan" ;;
+                        "${mirrors[DE]}") region="Germany" ;;
+                    esac
+                    echo -e "${INFO} 找到可用备用源 → 使用：\033[95m${region} (${mirror})\033[0m"
+                    break
+                fi
+                echo -e "${INFO} 备用源不可用：\033[95m${src}\033[0m"
+            done
+        fi
+    fi
+
+    [[ -n "${mirror}" ]] || error "所有软件源均不可用，请检查网络！"
+
+    if download_file "${keyring}" "${mirror}/pxcloud/lierfang.gpg"; then
+        echo -e "${STEPS} 已下载：\033[95m${keyring}\033[0m"
+    else
+        error "下载 lierfang.gpg 失败！"
+    fi
+
+    if [[ -f "${old_source_file}" ]]; then
+        [[ -f "${old_source_backup_file}" ]] ||
+            cp -f "${old_source_file}" "${old_source_backup_file}" || error "备份旧格式 Pxvirt 源失败！"
+        rm -f "${old_source_file}" || error "删除旧格式 Pxvirt 源失败！"
+        echo -e "${STEPS} 已移除旧格式源：\033[95m${old_source_file}\033[0m"
+    fi
+
+    cat > "${source_file}" <<EOF
+Types: deb
+URIs: ${mirror}/pxcloud/pxvirt
+Suites: ${VERSION_CODENAME}
+Components: main
+Signed-By: ${keyring}
+EOF
+    [[ $? -eq 0 ]] || error "写入 pxvirt.sources 失败！"
+    echo -e "${STEPS} 已写入：\033[95m${source_file}\033[0m"
+}
+
+setup_networking() {
+    apt-get update || error "更新软件源失败！"
+    apt-get install -y ifupdown2 resolvconf || error "安装网络组件失败！"
+    systemctl enable networking || error "启用 networking 服务失败！"
+    systemctl disable systemd-networkd systemd-networkd.socket 2>/dev/null || true
+    apt-get remove -y netplan.io >/dev/null 2>&1 || true
+    apt-get autoremove -y >/dev/null 2>&1 || true
+    systemctl disable --now NetworkManager 2>/dev/null || true
+}
+
+set_hostname() {
+    local current_hostname
+    local new_hostname_choice
+
+    current_hostname=$(tr -d ' \t\n\r' < /etc/hostname)
+    read -r -p "$(echo -e "${OPTIONS} 自定义主机名（回车跳过）：")" new_hostname_choice
+
+    if [[ -n "${new_hostname_choice}" ]]; then
+        require_command hostnamectl
+        hostnamectl set-hostname "${new_hostname_choice}" || error "设置主机名失败！"
+        echo -e "${SUCCESS} 主机名已更改为：[\e[1;32m ${new_hostname_choice} \e[0m]"
+    else
+        echo -e "${INFO} 保持当前主机名：[\e[1;32m ${current_hostname} \e[0m]"
+    fi
+}
+
+configure_network() {
+    local current_hostname
+
+    NETMASK_DECIMAL=$(cidr_to_netmask "${CIDR}")
+
+    echo -e "${STEPS} 配置 \033[95m/etc/network/interfaces\033[0m"
+    cat > /etc/network/interfaces <<EOF
+auto lo
+iface lo inet loopback
+
+auto ${NET_IF}
+iface ${NET_IF} inet static
+    hwaddress ether ${MAC_ADDR}
+    address ${IP_ADDR}
+    netmask ${NETMASK_DECIMAL}
+    gateway ${GATEWAY}
+EOF
+    [[ $? -eq 0 ]] || error "写入 /etc/network/interfaces 失败！"
+
+    echo -e "${STEPS} 配置 \033[95m/etc/resolv.conf\033[0m"
+    cat > /etc/resolv.conf <<EOF
+search lan
+nameserver ${GATEWAY}
+EOF
+    [[ $? -eq 0 ]] || error "写入 /etc/resolv.conf 失败！"
+
+    current_hostname=$(tr -d ' \t\n\r' < /etc/hostname)
+    echo -e "${STEPS} 配置 \033[95m/etc/hosts\033[0m"
+    cat > /etc/hosts <<EOF
+127.0.0.1       localhost
+${IP_ADDR}   ${current_hostname}.local ${current_hostname}
+::1             localhost ip6-localhost ip6-loopback
+fe00::0         ip6-localnet
+ff00::0         ip6-mcastprefix
+ff02::1         ip6-allnodes
+ff02::2         ip6-allrouters
+EOF
+    [[ $? -eq 0 ]] || error "写入 /etc/hosts 失败！"
+}
+
+pxvirt_major_version() {
+    if [[ "${VERSION_CODENAME}" == "bookworm" ]]; then
+        echo 8
+    else
+        echo 9
+    fi
+}
+
+install_pve() {
+    local pxvirt_version
+
+    pxvirt_version=$(pxvirt_major_version)
+    echo -e "${INFO} 安装 Pxvirt ${pxvirt_version}..."
+
+    if apt-get update && apt-get install -y proxmox-ve; then
+        if [[ -f /etc/ophub-release ]]; then
+            echo -e "${INFO} 正在更新证书..."
+            require_command pvecm
+            rm -f /etc/pve/pve-root-ca.pem /etc/pve/priv/pve-root-ca.* /etc/pve/local/pve-ssl.*
+            pvecm updatecerts -f >/dev/null 2>&1 || true
+            systemctl restart pveproxy >/dev/null 2>&1 || error "无法重启 pveproxy 服务，请检查！"
+            echo -e "${SUCCESS} 证书更新成功！"
+        fi
+        echo -e "${SUCCESS} Pxvirt ${pxvirt_version} 安装成功！请重启设备后浏览器访问：[\033[92m https://${IP_ADDR}:8006 \033[0m]"
+    else
+        error "Pxvirt ${pxvirt_version} 安装失败，请检查源和网络！"
+    fi
+}
+
+optimize_memory() {
+    local file
+    local files
+    local services
+    local svc
+
+    if ! prompt_yes_no "${OPTIONS} 是否进行内存优化？[\033[92mY\033[0m/n]：" "y"; then
+        echo -e "${INFO} 已跳过内存优化！"
+        return 0
+    fi
+
+    echo -e "${INFO} 开始内存优化..."
+    services=(
+        postfix.service
+        pve-ha-lrm.service
+        pve-ha-crm.service
+        spiceproxy.service
+        pve-firewall.service
+        pvefw-logger.service
+        pvescheduler.service
+    )
+
+    for svc in "${services[@]}"; do
+        systemctl stop "${svc}" >/dev/null 2>&1 || true
+        systemctl disable "${svc}" >/dev/null 2>&1 || true
+        echo -e "${STEPS} 已停用并禁用：\033[95m${svc}\033[0m"
+    done
+
+    echo -e "${STEPS} 添加延启脚本：\033[95m/usr/sbin/pve-optimize.sh\033[0m"
+    cat > /usr/sbin/pve-optimize.sh <<'EOF'
+#!/bin/bash
+SERVICES=(
+  pve-ha-lrm.service
+  pve-ha-crm.service
+  spiceproxy.service
+  pve-firewall.service
+  pvefw-logger.service
+  pvescheduler.service
+)
+for svc in "${SERVICES[@]}"; do
+  systemctl stop "${svc}" >/dev/null 2>&1 || true
+done
+echo "All down!!!"
+EOF
+    [[ $? -eq 0 ]] || error "写入 /usr/sbin/pve-optimize.sh 失败！"
+    chmod +x /usr/sbin/pve-optimize.sh || error "设置 /usr/sbin/pve-optimize.sh 权限失败！"
+
+    if [[ -f /etc/rc.local ]]; then
+        grep -q '/usr/sbin/pve-optimize.sh' /etc/rc.local ||
+            sed -i '/^exit 0/i sleep 300 \&\& /usr/sbin/pve-optimize.sh' /etc/rc.local ||
+                error "修改 /etc/rc.local 失败！"
+    else
+        echo -e "${INFO} /etc/rc.local 不存在，跳过插入命令！"
+    fi
+
+    files=(
+        /usr/share/perl5/PVE/Service/pveproxy.pm
+        /usr/share/perl5/PVE/Service/pvedaemon.pm
+        /usr/share/perl5/PVE/Service/spiceproxy.pm
+    )
+
+    for file in "${files[@]}"; do
+        if [[ -f "${file}" ]] && grep -q 'max_workers[[:space:]]*=>[[:space:]]*3' "${file}"; then
+            sed -i 's|max_workers[[:space:]]*=>[[:space:]]*3|max_workers => 1|' "${file}" ||
+                error "修改失败：${file}"
+            echo -e "${STEPS} 已修改：\033[95m${file}\033[0m"
+        else
+            echo -e "${STEPS} 已跳过：\033[95m${file}\033[0m"
+        fi
+    done
+
+    echo -e "${SUCCESS} 内存优化完成！"
+}
+
+configure_ipv6_sysctl() {
+    echo -e "${INFO} 开始配置 IPv6 参数..."
+
+    add_or_update_sysctl_param() {
+        local key="${1}"
+        local value="${2}"
+        local escaped_key="${key//./\\.}"
+
+        if grep -qE "^${escaped_key}=" /etc/sysctl.conf; then
+            sed -i "s|^${escaped_key}=.*|${key}=${value}|" /etc/sysctl.conf ||
+                error "更新 IPv6 参数失败：${key}"
+            echo -e "${STEPS} 更新参数：\033[95m${key}=${value}\033[0m"
+        else
+            echo "${key}=${value}" >> /etc/sysctl.conf ||
+                error "添加 IPv6 参数失败：${key}"
+            echo -e "${STEPS} 添加参数：\033[95m${key}=${value}\033[0m"
+        fi
+    }
+
+    add_or_update_sysctl_param "net.ipv6.conf.all.accept_ra" 2
+    add_or_update_sysctl_param "net.ipv6.conf.default.accept_ra" 2
+    add_or_update_sysctl_param "net.ipv6.conf.vmbr0.accept_ra" 2
+    add_or_update_sysctl_param "net.ipv6.conf.all.autoconf" 1
+    add_or_update_sysctl_param "net.ipv6.conf.default.autoconf" 1
+    add_or_update_sysctl_param "net.ipv6.conf.vmbr0.autoconf" 1
+
+    echo -e "${SUCCESS} IPv6 参数配置成功！"
+}
+
+create_vmbr0() {
+    if ! prompt_yes_no "${OPTIONS} 是否创建网桥？[\033[92mY\033[0m/n]：" "y"; then
+        echo -e "${INFO} 已跳过网桥创建！"
+        return 0
+    fi
+
+    echo -e "${STEPS} 配置 \033[95m/etc/network/interfaces\033[0m"
+    cat > /etc/network/interfaces <<EOF
+auto lo
+iface lo inet loopback
+
+iface ${NET_IF} inet manual
+    hwaddress ether ${MAC_ADDR}
+
+auto vmbr0
+iface vmbr0 inet static
+    address ${IP_ADDR}
+    gateway ${GATEWAY}
+    netmask ${NETMASK_DECIMAL}
+    bridge-ports ${NET_IF}
+    bridge-stp off
+    bridge-fd 0
+EOF
+    [[ $? -eq 0 ]] || error "写入 /etc/network/interfaces 失败！"
+
+    if [[ "${VERSION_CODENAME}" == "trixie" ]]; then
+        grep -qxF "source /etc/network/interfaces.d/sdn" /etc/network/interfaces ||
+            sed -i '1i source /etc/network/interfaces.d/sdn' /etc/network/interfaces ||
+                error "添加 SDN 配置引用失败！"
+    fi
+
+    echo -e "${SUCCESS} 网桥 vmbr0 配置已写入！"
+    configure_ipv6_sysctl
+}
+
+prompt_reboot() {
+    if prompt_yes_no "${OPTIONS} 是否立即重启？[\033[92mY\033[0m/n]：" "y"; then
+        for ((i = 5; i >= 0; i--)); do
+            echo -ne "${STEPS} 倒计时：[ "
+            for ((j = 5; j > i; j--)); do echo -ne "\e[31m=\e[0m"; done
+            for ((j = i; j > 0; j--)); do echo -ne "\e[32m-\e[0m"; done
+            echo -ne " ]\r"
+            sleep 1
+        done
+        echo -e "\n${INFO} 重启中..."
+        reboot
+    else
+        echo -e "${INFO} 请手动重启！"
+    fi
+
+    exit 0
+}
+
+main() {
+    check_dependencies
+    check_env
+    check_select_interface
+    detect_network_info
+    confirm_source
+    backup_and_comment_sources
+    setup_repositories
+    setup_networking
+    set_hostname
+    configure_network
+    install_pve
+    optimize_memory
+    create_vmbr0
+    prompt_reboot
+}
+
+main "$@"
