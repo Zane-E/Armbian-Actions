@@ -198,6 +198,7 @@ jobs:
             exit 1
           fi
           tar -tzf "../kernel-${KERNEL_VERSION}-${LINUX_FAMILY}.tar.gz" > /dev/null || { echo "Failed to verify tar.gz file"; exit 1; }
+          echo "TARGET_FILE=kernel-${KERNEL_VERSION}-${LINUX_FAMILY}.tar.gz" >> "${GITHUB_ENV}"
 
       - name: Upload Kernel to Release
         uses: ophub/upload-to-releases@main
