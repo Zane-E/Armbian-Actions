@@ -137,6 +137,7 @@ jobs:
       max-parallel: ${{ fromJSON(needs.Prepare-Matrix.outputs.max_parallel) }}
       matrix: ${{ fromJSON(needs.Prepare-Matrix.outputs.matrix) }}
     env:
+      BRANCH: ${{ matrix.branch }}
       RELEASE: ${{ matrix.release }}
     steps:
       - name: Checkout
@@ -209,9 +210,9 @@ jobs:
           [ -z "${Image_File}" ] && { echo "No image files found."; tree; exit 1; }
           echo "Image_File: ${Image_File}"
           VERSION=$(echo "${Image_File}" | cut -d '_' -f 2 | cut -d '-' -f 1)
-          echo "VERSION=${VERSION}" >> ${GITHUB_ENV}
+          echo "VERSION=${VERSION}" >> "${GITHUB_ENV}"
           echo "VERSION: ${VERSION}"
-          echo "CURRENT_YEAR_MONTH=$(date +'%Y.%m')" >> ${GITHUB_ENV}
+          echo "CURRENT_YEAR_MONTH=$(date +'%Y.%m')" >> "${GITHUB_ENV}"
           echo "CURRENT_YEAR_MONTH: $(date +'%Y.%m')"
 
       - name: Upload Image to Release
@@ -241,10 +242,10 @@ jobs:
             echo "Kernel_File: ${Kernel_File}"
             KERNEL_VERSION=$(echo "$Kernel_File" | cut -d '_' -f 5 | cut -d '-' -f 1)
             [[ ! "${KERNEL_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && KERNEL_VERSION="${KERNEL_VERSION}.0"
-            echo "KERNEL_VERSION=${KERNEL_VERSION}" >> ${GITHUB_ENV}
+            echo "KERNEL_VERSION=${KERNEL_VERSION}" >> "${GITHUB_ENV}"
             echo "KERNEL_VERSION: ${KERNEL_VERSION}"
             LINUX_FAMILY=$(echo "${Kernel_File}" | cut -d '_' -f 1 | awk -F '-' '{print $NF}')
-            echo "LINUX_FAMILY=${LINUX_FAMILY}" >> ${GITHUB_ENV}
+            echo "LINUX_FAMILY=${LINUX_FAMILY}" >> "${GITHUB_ENV}"
             echo "LINUX_FAMILY: ${LINUX_FAMILY}"
           else
             echo "No matching file found. Available files are:"

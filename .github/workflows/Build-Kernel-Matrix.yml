@@ -88,7 +88,7 @@ jobs:
     steps:
       - name: Record start time
         run: |
-          echo "START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> ${GITHUB_ENV}
+          echo "START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> "${GITHUB_ENV}"
           echo "LinuxFamily: ${{ matrix.linux_family }}"
           echo "BRANCH: ${{ matrix.branch }}"
 
@@ -169,11 +169,11 @@ jobs:
             echo "Kernel_File: ${Kernel_File}"
             KERNEL_VERSION=$(echo "${Kernel_File}" | cut -d '_' -f 5 | cut -d '-' -f 1)
             [[ ! "${KERNEL_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && KERNEL_VERSION="${KERNEL_VERSION}.0"
-            echo "KERNEL_VERSION=${KERNEL_VERSION}" >> ${GITHUB_ENV}
+            echo "KERNEL_VERSION=${KERNEL_VERSION}" >> "${GITHUB_ENV}"
             echo "KERNEL_VERSION: ${KERNEL_VERSION}"
             LINUX_FAMILY=$(echo "${Kernel_File}" | cut -d '_' -f 1 | awk -F '-' '{print $NF}')
             [ "${{ matrix.branch }}" = "flippy" ] && LINUX_FAMILY="${LINUX_FAMILY}-flippy"
-            echo "LINUX_FAMILY=${LINUX_FAMILY}" >> ${GITHUB_ENV}
+            echo "LINUX_FAMILY=${LINUX_FAMILY}" >> "${GITHUB_ENV}"
             echo "LINUX_FAMILY: ${LINUX_FAMILY}"
           else
             echo "No matching file found. Available files are:"
@@ -248,7 +248,7 @@ jobs:
           echo "End time: ${end_time}"
           duration=$(( $(date -d "${end_time}" +%s) - $(date -d "${start_time}" +%s) ))
           echo "Workflow duration: ${duration} seconds"
-          echo "DURATION=${duration}" >> ${GITHUB_ENV}
+          echo "DURATION=${duration}" >> "${GITHUB_ENV}"
 
       - name: Telegram notification
         run: |

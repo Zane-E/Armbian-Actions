@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # 修复 Armbian 构建中的 mknod 命令以兼容 Ubuntu 26.04
 # 同时保持对 Ubuntu 22.04/24.04 的兼容性

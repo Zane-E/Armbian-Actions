@@ -1,4 +1,9 @@
 #!/bin/bash
+set -euo pipefail
+
+: "${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
+BRANCH="${BRANCH:-}"
+RELEASE="${RELEASE:-}"
 
 # General patches
 echo "Copying General patches..."
@@ -170,7 +175,7 @@ sed -i '/display_alert "ORAS manifest fetch error"/c\		:' lib/functions/general/
 [ ! -d userpatches/extensions ] && mkdir -p userpatches/extensions
 
 # Set custom version automatically based on date
-# Format: YY.MM.1 (e.g., 25.11.1)
+# Format: YY.MM.1 (e.g. 25.11.1)
 echo "$(date +%y).$(date +%m).1" > VERSION
 
 echo "Patches applied successfully."
