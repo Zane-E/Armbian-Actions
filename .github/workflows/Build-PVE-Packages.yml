@@ -191,8 +191,8 @@ jobs:
           else
             release_tag="PVE-Packages-$(date +'%Y.%m')"
           fi
-          package_archive="${BUILD_ROOT}/${release_tag}-packages.tar.xz"
-          log_archive="${BUILD_ROOT}/${release_tag}-logs.tar.xz"
+          package_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-packages.tar.xz"
+          log_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-logs.tar.xz"
           if [[ -d "${BUILD_ROOT}/out/${{ inputs.build_branch }}" ]]; then
             tar -C "${BUILD_ROOT}/out" -cJf "${package_archive}" ${{ inputs.build_branch }}
           fi
@@ -217,8 +217,7 @@ jobs:
           make_latest: true
           gh_token: ${{ secrets.GITHUB_TOKEN }}
           body: |
-            ### PVE ${{ inputs.build_branch }} Build
-            - Ref: `${{ github.ref_name }}`
+            ### PVE Packages Build
             - Commit: `${{ github.sha }}`
             - Sources: `${{ inputs.only_sources || 'all' }}`
             - Max passes: `${{ inputs.max_passes || '4' }}`
