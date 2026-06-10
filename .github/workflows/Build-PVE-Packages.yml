@@ -214,7 +214,7 @@ jobs:
           allow_updates: true
           remove_artifacts: false
           replaces_artifacts: true
-          make_latest: true
+          make_latest: false
           gh_token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             ### PVE Packages Build
