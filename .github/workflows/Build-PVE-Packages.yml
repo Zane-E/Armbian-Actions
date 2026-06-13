@@ -191,13 +191,18 @@ jobs:
           else
             release_tag="PVE-Packages-$(date +'%Y.%m')"
           fi
-          package_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-packages.tar.xz"
-          log_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-logs.tar.xz"
+          if [[ -n "${{ inputs.only_sources }}" ]]; then
+            package_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-packages-customize.tar.gz"
+            log_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-logs-customize.tar.gz"
+          else
+            package_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-packages.tar.gz"
+            log_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-logs.tar.gz"
+          fi
           if [[ -d "${BUILD_ROOT}/out/${{ inputs.build_branch }}" ]]; then
-            tar -C "${BUILD_ROOT}/out" -cJf "${package_archive}" ${{ inputs.build_branch }}
+            tar -C "${BUILD_ROOT}/out" -czf "${package_archive}" ${{ inputs.build_branch }}
           fi
           if [[ -d "${BUILD_ROOT}/logs/pve-${{ inputs.build_branch }}" ]]; then
-            tar -C "${BUILD_ROOT}/logs" -cJf "${log_archive}" pve-${{ inputs.build_branch }}
+            tar -C "${BUILD_ROOT}/logs" -czf "${log_archive}" pve-${{ inputs.build_branch }}
           fi
           {
             echo "RELEASE_TAG=${release_tag}"
@@ -222,3 +227,12 @@ jobs:
             - Sources: `${{ inputs.only_sources || 'all' }}`
             - Max passes: `${{ inputs.max_passes || '4' }}`
             - Resume built: `${{ inputs.resume_built || '1' }}`
+
+      - name: Delete releases and workflows runs
+        uses: ophub/delete-releases-workflows@main
+        with:
+          delete_releases: false
+          releases_keep_latest: 10
+          delete_workflows: true
+          workflows_keep_day: 3
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
