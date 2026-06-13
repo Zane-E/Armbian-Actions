@@ -7,7 +7,7 @@ on:
         description: 'build branch'
         default: 'arm64'
         required: true
-        type: choice 
+        type: choice
         options:
           - "arm64"
           - "riscv64"
@@ -79,7 +79,11 @@ jobs:
           sudo rm -rf ~/{.cargo,.dotnet,.rustup}
           sudo timedatectl set-timezone "${TZ}" || true
           sudo -E apt-get update -qq
-          sudo -E apt-get install -y -qq lvm2 xfsprogs qemu-user-static binfmt-support
+          if [[ "${{ inputs.runner_label }}" == "ubuntu-26.04" ]]; then
+            sudo -E apt-get install -y -qq qemu-user-binfmt binfmt-support
+          else
+            sudo -E apt-get install -y -qq qemu-user-static binfmt-support
+          fi
           docker builder prune -af || true
 
       - name: Create simulated physical disk
@@ -124,7 +128,7 @@ jobs:
       - name: Download source code
         shell: bash
         run: |
-          set -euxo pipefail         
+          set -euxo pipefail
           git clone -q --single-branch --depth=1 --branch=master "${SOURCE_REPO_URL}" "${PROJECT_ROOT}"
           git -C "${PROJECT_ROOT}" rev-parse --short HEAD
 
