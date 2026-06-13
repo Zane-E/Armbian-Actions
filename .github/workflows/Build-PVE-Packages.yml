@@ -35,10 +35,19 @@ on:
         description: "Optional release tag override"
         required: false
         default: ""
+      runner_label:
+        description: 'GitHub runner'
+        default: 'ubuntu-26.04'
+        required: false
+        type: choice
+        options:
+          - 'ubuntu-24.04'
+          - 'ubuntu-26.04'
+
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ inputs.runner_label }}
     env:
       TZ: Asia/Shanghai
       BUILD_ROOT: /mnt/workdir

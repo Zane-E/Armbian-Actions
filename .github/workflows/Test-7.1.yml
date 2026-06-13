@@ -52,12 +52,14 @@ on:
           - '4'
       RUNNER_LABEL:
         description: 'GitHub runner'
-        default: 'ubuntu-24.04-arm'
+        default: 'ubuntu-26.04-arm'
         required: false
         type: choice
         options:
           - 'ubuntu-24.04-arm'
+          - 'ubuntu-26.04-arm'
           - 'ubuntu-24.04'
+          - 'ubuntu-26.04'
       PR:
         description: 'Enter the PR number to build'
         required: false

@@ -78,7 +78,7 @@ jobs:
     needs: Prepare-Matrix
     if: ${{ needs.Prepare-Matrix.outputs.count != '0' }}
     name: Build [ ${{ matrix.linux_family }} ${{ matrix.branch }} ]
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     strategy:
       fail-fast: false
       max-parallel: ${{ fromJSON(needs.Prepare-Matrix.outputs.max_parallel) }}

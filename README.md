@@ -85,7 +85,7 @@
 | **Docker base image** | Docker 基础镜像 | `ubuntu:jammy` | `ubuntu:jammy` `ubuntu:noble` `ubuntu:resolute` |
 | **Upload deb packages** | 上传 `deb` 软件包 | `no` | `yes` `no` |
 | **Apply patches** | 应用仓库补丁 | `yes` | `yes`（应用补丁） `no`（官方原版） |
-| **GitHub runner** | Actions 运行器 | `ubuntu-24.04-arm` | `ubuntu-24.04-arm`（ARM64） `ubuntu-24.04`（x64） |
+| **GitHub runner** | Actions 运行器 | `ubuntu-24.06-arm` | `ubuntu-24.04-arm`（ARM64） `ubuntu-26.04-arm`（ARM64） `ubuntu-24.04`（x64） `ubuntu-26.04`（x64） |
 
 ---
 
