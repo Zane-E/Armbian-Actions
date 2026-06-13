@@ -72,6 +72,8 @@ env:
 jobs:
   Build-Kernel:
     runs-on: ${{ inputs.RUNNER_LABEL }}
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6

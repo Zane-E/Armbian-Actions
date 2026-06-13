@@ -44,6 +44,8 @@ env:
 jobs:
   Build-Kernel:
     runs-on: ${{ inputs.RUNNER_LABEL }}
+    permissions:
+      contents: write
     steps:
       - name: Check input combination
         run: |

@@ -134,6 +134,8 @@ jobs:
     if: ${{ needs.Prepare-Matrix.outputs.count != '0' }}
     name: Build [ ${{ matrix.board }} ${{ matrix.branch }} ${{ matrix.release }} ]
     runs-on: ${{ inputs.RUNNER_LABEL }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       max-parallel: ${{ fromJSON(needs.Prepare-Matrix.outputs.max_parallel) }}

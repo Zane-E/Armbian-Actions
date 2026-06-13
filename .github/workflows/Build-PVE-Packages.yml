@@ -48,6 +48,8 @@ on:
 jobs:
   build:
     runs-on: ${{ inputs.runner_label }}
+    permissions:
+      contents: write
     env:
       TZ: Asia/Shanghai
       BUILD_ROOT: /mnt/workdir
