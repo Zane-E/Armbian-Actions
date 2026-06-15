@@ -1,4 +1,4 @@
-name: TEST 7.1
+name: TEST 7.2
 
 on:
   workflow_dispatch:
@@ -24,6 +24,7 @@ on:
         required: true
         type: choice
         options:
+          - '0'
           - '1'
           - '2'
           - '3'
@@ -140,17 +141,22 @@ jobs:
           "${GITHUB_WORKSPACE}/scripts/apply_patches.sh"
           "${GITHUB_WORKSPACE}/scripts/rename_to_conf.sh"
           "${GITHUB_WORKSPACE}/scripts/fix_mknod_ubuntu26.sh"
+          sed -i '29,35d' config/sources/mainline-kernel.conf.sh
           sed -i 's|https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git|https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git|g' lib/functions/configuration/main-config.sh
-          sed -i "s|7\.1-rc[1-8]|7\.1-rc${{ inputs.RC_VERSION }}|g" config/sources/mainline-kernel.conf.sh
+          if [ "${{ inputs.RC_VERSION }}" == "0" ]; then
+            sed -i "s|7\.2-rc[1-8]|7\.2|g" config/sources/mainline-kernel.conf.sh
+          else
+            sed -i "s|7\.2-rc[1-8]|7\.2-rc${{ inputs.RC_VERSION }}|g" config/sources/mainline-kernel.conf.sh
+          fi
 
           # meson64
-          cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1.patch patch/kernel/archive/meson64-7.1/ || true
+          cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1.patch patch/kernel/archive/meson64-7.2/ || true
 
           # rockchip64
-          cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/rockchip64-7.1/ || true
-          cp -f ${GITHUB_WORKSPACE}/patch/T4/t4.patch patch/kernel/archive/rockchip64-7.1/ || true
-          cp -f ${GITHUB_WORKSPACE}/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-7.1/dt/ || true
-          cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-7.1/dt/ || true
+          cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/rockchip64-7.2/ || true
+          cp -f ${GITHUB_WORKSPACE}/patch/T4/t4.patch patch/kernel/archive/rockchip64-7.2/ || true
+          cp -f ${GITHUB_WORKSPACE}/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-7.2/dt/ || true
+          cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-7.2/dt/ || true
 
       - name: Compile Kernel [ ${{ inputs.LinuxFamily }} ${{ inputs.BRANCH }} ] [ rc${{ inputs.RC_VERSION }} ]
         working-directory: /mnt/workdir/build
