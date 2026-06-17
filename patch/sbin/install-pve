@@ -417,8 +417,8 @@ EOF
 repositories_select() {
     while true; do
         echo -e "${INFO} 请选择版本："
-		echo -e "${SN} [\033[96m 1 \033[0m] -> Proxmox VE 9 [\033[92m 源码编译版 \033[0m]"
-		echo -e "${SN} [\033[96m 2 \033[0m] -> Proxmox VE 9 [\033[92m 定制版 by lierfang \033[0m]"
+        echo -e "${SN} [\033[96m 1 \033[0m] -> Proxmox VE 9 [\033[92m 源码编译版 \033[0m]"
+        echo -e "${SN} [\033[96m 2 \033[0m] -> Proxmox VE 9 [\033[92m 定制版 by lierfang \033[0m]"
         read -r -p "$(echo -e "${OPTIONS} 请输入 [\033[92m 1-2 \033[0m] [ 回车默认 \033[92m1\033[0m ]：" )" select_choice
 
         select_choice="${select_choice:-1}"
@@ -426,7 +426,7 @@ repositories_select() {
         case "${select_choice}" in
             1)
                 setup_repositories_new
-                break 
+                break
                 ;;
             2)
                 setup_repositories
@@ -527,6 +527,9 @@ install_pve() {
             pvecm updatecerts -f >/dev/null 2>&1 || true
             systemctl restart pveproxy >/dev/null 2>&1 || error "无法重启 pveproxy 服务，请检查！"
             echo -e "${SUCCESS} 证书更新成功！"
+        fi
+        if [[ -f /etc/apt//etc/apt/sources.list.d/pxvirt-sources.list ]]; then
+           rm -f /etc/apt//etc/apt/sources.list.d/pxvirt-sources.list
         fi
         echo -e "${SUCCESS} Proxmox VE ${pve_version} 安装成功！请重启设备后浏览器访问：[\033[92m https://${IP_ADDR}:8006 \033[0m]"
     else
