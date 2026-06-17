@@ -528,8 +528,8 @@ install_pve() {
             systemctl restart pveproxy >/dev/null 2>&1 || error "无法重启 pveproxy 服务，请检查！"
             echo -e "${SUCCESS} 证书更新成功！"
         fi
-        if [[ -f /etc/apt//etc/apt/sources.list.d/pxvirt-sources.list ]]; then
-           rm -f /etc/apt//etc/apt/sources.list.d/pxvirt-sources.list
+        if [[ -f /etc/apt/sources.list.d/pxvirt-sources.list ]]; then
+           rm -f /etc/apt/sources.list.d/pxvirt-sources.list
         fi
         echo -e "${SUCCESS} Proxmox VE ${pve_version} 安装成功！请重启设备后浏览器访问：[\033[92m https://${IP_ADDR}:8006 \033[0m]"
     else
