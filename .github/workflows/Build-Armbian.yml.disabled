@@ -97,9 +97,9 @@ on:
         type: choice
         options:
           - 'ubuntu-24.04-arm'
-		  - 'ubuntu-26.04-arm'
+          - 'ubuntu-26.04-arm'
           - 'ubuntu-24.04'
-		  - 'ubuntu-26.04'
+          - 'ubuntu-26.04'
 
 env:
   TZ: Asia/Shanghai
@@ -109,11 +109,11 @@ env:
 jobs:
   Build-Armbian:
     runs-on: ${{ inputs.RUNNER_LABEL }}
-	permissions:
+    permissions:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Initialization environment
         id: init

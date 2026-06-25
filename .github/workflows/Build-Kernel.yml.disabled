@@ -33,9 +33,9 @@ on:
         type: choice
         options:
           - 'ubuntu-24.04-arm'
-		  - 'ubuntu-26.04-arm'
+          - 'ubuntu-26.04-arm'
           - 'ubuntu-24.04'
-		  - 'ubuntu-26.04'
+          - 'ubuntu-26.04'
 
 env:
   TZ: Asia/Shanghai
@@ -80,7 +80,7 @@ jobs:
           esac
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Initialization environment
         id: init
