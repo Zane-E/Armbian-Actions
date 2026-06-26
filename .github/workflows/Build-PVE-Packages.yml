@@ -50,6 +50,7 @@ jobs:
     runs-on: ${{ inputs.runner_label }}
     permissions:
       contents: write
+      actions: write
     env:
       TZ: Asia/Shanghai
       BUILD_ROOT: /mnt/workdir

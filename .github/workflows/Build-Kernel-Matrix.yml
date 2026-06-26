@@ -280,6 +280,8 @@ jobs:
       - Prepare-Matrix
       - Build-Kernel
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: Delete releases and workflows runs
         uses: ophub/delete-releases-workflows@main

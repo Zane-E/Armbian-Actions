@@ -46,6 +46,7 @@ jobs:
     runs-on: ${{ inputs.RUNNER_LABEL }}
     permissions:
       contents: write
+      actions: write
     steps:
       - name: Check input combination
         run: |

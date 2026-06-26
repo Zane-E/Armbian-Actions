@@ -366,6 +366,8 @@ jobs:
       - Prepare-Matrix
       - Build-Armbian
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: Delete releases and workflows runs
         uses: ophub/delete-releases-workflows@main
