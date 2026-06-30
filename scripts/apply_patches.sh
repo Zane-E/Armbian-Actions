@@ -25,7 +25,7 @@ if [[ "${BRANCH}" =~ ^(flippy)$ ]]; then
 		BOOTDIR='"'"'u-boot-rockchip64'"'"'\
 		declare -g KERNEL_MAJOR_MINOR="6.1"    # Major and minor versions of this kernel.\
 		declare -g -i KERNEL_GIT_CACHE_TTL=120 # 2 minutes; this is a high-traffic repo\
-		KERNELSOURCE='"'"'https://github.com/zane-e/linux-6.1.y-rockchip.git'"'"'\
+		KERNELSOURCE='"'"'https://github.com/unifreq/linux-6.1.y-rockchip.git'"'"'\
 		KERNELBRANCH='"'"'branch:main'"'"'\
 		KERNELPATCHDIR='"'"'rk35xx-vendor-6.1'"'"'\
 		;;
@@ -38,7 +38,7 @@ if [[ "${BRANCH}" =~ ^(flippy)$ ]]; then
 		BOOTDIR='"'"'u-boot-rockchip64'"'"'\
 		declare -g KERNEL_MAJOR_MINOR="6.1"    # Major and minor versions of this kernel.\
 		declare -g -i KERNEL_GIT_CACHE_TTL=120 # 2 minutes; this is a high-traffic repo\
-		KERNELSOURCE='"'"'https://github.com/zane-e/linux-6.1.y-rockchip.git'"'"'\
+		KERNELSOURCE='"'"'https://github.com/unifreq/linux-6.1.y-rockchip.git'"'"'\
 		KERNELBRANCH='"'"'branch:main'"'"'\
 		KERNELPATCHDIR='"'"'rk35xx-vendor-6.1'"'"'\
 		LINUXFAMILY=rk35xx\
