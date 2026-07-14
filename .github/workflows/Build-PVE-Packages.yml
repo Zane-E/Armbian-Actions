@@ -1,0 +1,251 @@
+name: Build PVE Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_branch:
+        description: 'build branch'
+        default: 'arm64'
+        required: true
+        type: choice
+        options:
+          - "arm64"
+          - "riscv64"
+      only_sources:
+        description: "Optional source packages to build (space or comma separated)"
+        required: false
+        default: ""
+      max_passes:
+        description: "Build retry passes"
+        required: false
+        default: "4"
+      resume_built:
+        description: "Reuse previous built.txt state (1 or 0)"
+        required: false
+        default: "1"
+      upload_release:
+        description: "Upload archives to GitHub Releases"
+        required: false
+        default: "yes"
+        type: choice
+        options:
+          - "yes"
+          - "no"
+      release_tag:
+        description: "Optional release tag override"
+        required: false
+        default: ""
+      runner_label:
+        description: 'GitHub runner'
+        default: 'ubuntu-24.04'
+        required: false
+        type: choice
+        options:
+          - 'ubuntu-24.04'
+          - 'ubuntu-26.04'
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner_label }}
+    permissions:
+      contents: write
+      actions: write
+    env:
+      TZ: Asia/Shanghai
+      BUILD_ROOT: /mnt/workdir
+      PROJECT_ROOT: /mnt/workdir/pve-${{ inputs.build_branch }}-builder
+      SOURCE_REPO_URL: https://github.com/ramir-o/pve-arm64-builder.git #定义仓库
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Initialize environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker_images_ids=$(docker images -q)
+          [ -n "${docker_images_ids}" ] && docker rmi ${docker_images_ids}
+          docker system prune -a -f
+          [[ -n "${AGENT_TOOLSDIRECTORY}" ]] && sudo rm -rf "${AGENT_TOOLSDIRECTORY}"
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android 2>/dev/null
+          sudo swapoff -a
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* openjdk* mysql* php* mongodb* moby* snapd* android* || true
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get clean
+          sudo sed -i '/NVM_DIR/d;/skel/d' /root/{.bashrc,.profile}
+          sudo rm -rf ~/{.cargo,.dotnet,.rustup}
+          sudo timedatectl set-timezone "${TZ}" || true
+          sudo -E apt-get update -qq
+          if [[ "${{ inputs.runner_label }}" == "ubuntu-26.04" ]]; then
+            sudo -E apt-get install -y -qq qemu-user-binfmt binfmt-support
+          else
+            sudo -E apt-get install -y -qq qemu-user-static binfmt-support
+          fi
+          docker builder prune -af || true
+
+      - name: Create simulated physical disk
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mnt_size=$(($(df --output=avail -BG /mnt | tail -1 | tr -dc '0-9') - 1))
+          root_size=$(($(df --output=avail -BG / | tail -1 | tr -dc '0-9') - 4))
+          if (( mnt_size < 1 )); then mnt_size=1; fi
+          if (( root_size < 1 )); then root_size=1; fi
+          sudo truncate -s "${mnt_size}G" /mnt/mnt.img
+          sudo truncate -s "${root_size}G" /root.img
+          LOOP_MNT=$(sudo losetup -f --show /mnt/mnt.img)
+          LOOP_ROOT=$(sudo losetup -f --show /root.img)
+          sudo pvcreate "${LOOP_MNT}"
+          sudo pvcreate "${LOOP_ROOT}"
+          sudo vgcreate -y github "${LOOP_MNT}" "${LOOP_ROOT}"
+          sudo lvcreate -n runner -l 100%FREE github
+          sudo mkfs.xfs /dev/github/runner
+          sudo mkdir -p "${BUILD_ROOT}"
+          sudo mount /dev/github/runner "${BUILD_ROOT}"
+          sudo chown -R "${USER}:${USER}" "${BUILD_ROOT}"
+
+      - name: Relocate Docker data root
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo systemctl stop docker
+          sudo rm -rf /var/lib/docker
+          sudo mkdir -p "${BUILD_ROOT}/docker"
+          printf '{\n  "data-root": "%s/docker"\n}\n' "${BUILD_ROOT}" | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker
+          docker info | grep 'Docker Root Dir'
+
+      - name: Show disk usage after cleanup
+        shell: bash
+        run: |
+          set -euxo pipefail
+          df -Th
+          docker system df || true
+
+      - name: Download source code
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone -q --single-branch --depth=1 --branch=master "${SOURCE_REPO_URL}" "${PROJECT_ROOT}"
+          git -C "${PROJECT_ROOT}" rev-parse --short HEAD
+
+      - name: Switch Dockerfile mirrors to official
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sed -i \
+            -e 's#^ARG DEBIAN_MIRROR=.*#ARG DEBIAN_MIRROR=http://deb.debian.org/debian#' \
+            -e 's#^ARG DEBIAN_SECURITY_MIRROR=.*#ARG DEBIAN_SECURITY_MIRROR=http://security.debian.org/debian-security#' \
+            -e 's#^ARG PROXMOX_MIRROR=.*#ARG PROXMOX_MIRROR=http://download.proxmox.com#' \
+            "${PROJECT_ROOT}/Dockerfile"
+          grep '^ARG .*MIRROR=' "${PROJECT_ROOT}/Dockerfile"
+
+      - name: Prepare workspace layout
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "${BUILD_ROOT}/src" "${BUILD_ROOT}/out/${{ inputs.build_branch }}" "${BUILD_ROOT}/logs/pve-${{ inputs.build_branch }}"
+
+      - name: Build builder image
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker build -t pve-${{ inputs.build_branch }}-builder:trixie "${PROJECT_ROOT}"
+
+      - name: Start builder container
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker rm -f pve-${{ inputs.build_branch }}-builder 2>/dev/null || true
+          docker run -d --name pve-${{ inputs.build_branch }}-builder \
+            --user 0:0 \
+            -v "${BUILD_ROOT}:/workspaces/pve" \
+            -v /etc/localtime:/etc/localtime:ro \
+            -w /workspaces/pve \
+            pve-${{ inputs.build_branch }}-builder:trixie \
+            sleep infinity
+
+      - name: Build ${{ inputs.build_branch }} packages
+        shell: bash
+        env:
+          ONLY_SOURCES: ${{ inputs.only_sources || '' }}
+          MAX_PASSES: ${{ inputs.max_passes || '4' }}
+          RESUME_BUILT: ${{ inputs.resume_built || '1' }}
+        run: |
+          set -euxo pipefail
+          build_cmd='/workspaces/pve/pve-${{ inputs.build_branch }}-builder/build_pve_${{ inputs.build_branch }}.sh'
+          if [[ -n "${ONLY_SOURCES}" ]]; then
+            docker exec pve-${{ inputs.build_branch }}-builder bash -lc \
+              "ONLY_SOURCES='${ONLY_SOURCES}' MAX_PASSES='${MAX_PASSES}' RESUME_BUILT='${RESUME_BUILT}' ${build_cmd}"
+          else
+            docker exec pve-${{ inputs.build_branch }}-builder bash -lc \
+              "MAX_PASSES='${MAX_PASSES}' RESUME_BUILT='${RESUME_BUILT}' ${build_cmd}"
+          fi
+
+      - name: List outputs
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ls -lah "${BUILD_ROOT}/out/${{ inputs.build_branch }}" || true
+          ls -lah "${BUILD_ROOT}/logs/pve-${{ inputs.build_branch }}" || true
+
+      - name: Prepare release archives
+        shell: bash
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag || '' }}
+        run: |
+          set -euxo pipefail
+          if [[ -n "${INPUT_RELEASE_TAG}" ]]; then
+            release_tag="${INPUT_RELEASE_TAG}"
+          else
+            release_tag="PVE-Packages-$(date +'%Y.%m')"
+          fi
+          if [[ -n "${{ inputs.only_sources }}" ]]; then
+            package_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-packages-customize.tar.gz"
+            log_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-logs-customize.tar.gz"
+          else
+            package_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-packages.tar.gz"
+            log_archive="${BUILD_ROOT}/${{ inputs.build_branch }}-logs.tar.gz"
+          fi
+          if [[ -d "${BUILD_ROOT}/out/${{ inputs.build_branch }}" ]]; then
+            tar -C "${BUILD_ROOT}/out" -czf "${package_archive}" ${{ inputs.build_branch }}
+          fi
+          if [[ -d "${BUILD_ROOT}/logs/pve-${{ inputs.build_branch }}" ]]; then
+            tar -C "${BUILD_ROOT}/logs" -czf "${log_archive}" pve-${{ inputs.build_branch }}
+          fi
+          {
+            echo "RELEASE_TAG=${release_tag}"
+            echo "PACKAGE_ARCHIVE=${package_archive}"
+            echo "LOG_ARCHIVE=${log_archive}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Upload release archives
+        if: ${{ inputs.upload_release == 'yes' }}
+        uses: ophub/upload-to-releases@main
+        with:
+          tag: "${{ env.RELEASE_TAG }}"
+          artifacts: "${{ env.PACKAGE_ARCHIVE }},${{ env.LOG_ARCHIVE }}"
+          allow_updates: true
+          remove_artifacts: false
+          replaces_artifacts: true
+          make_latest: false
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            ### PVE Packages Build
+            - Commit: `${{ github.sha }}`
+            - Sources: `${{ inputs.only_sources || 'all' }}`
+            - Max passes: `${{ inputs.max_passes || '4' }}`
+            - Resume built: `${{ inputs.resume_built || '1' }}`
+
+      - name: Delete releases and workflows runs
+        uses: ophub/delete-releases-workflows@main
+        with:
+          delete_releases: false
+          releases_keep_latest: 10
+          delete_workflows: true
+          workflows_keep_day: 3
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
