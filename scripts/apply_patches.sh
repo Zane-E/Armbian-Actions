@@ -122,8 +122,6 @@ echo "Copying N1 patches..."
 cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1.patch patch/kernel/archive/meson64-6.18/
 cp -f ${GITHUB_WORKSPACE}/patch/N1/fix-n1.patch patch/kernel/archive/meson64-7.1/
 cp -f ${GITHUB_WORKSPACE}/patch/N1/u-boot.ext config/optional/boards/aml-s9xx-box/_packages/bsp-cli/boot/
-rm -f patch/kernel/archive/meson64-6.18/general-pinctrl-meson-restore-non-sleeping-gpio.patch
-rm -f patch/kernel/archive/meson64-7.1/general-gpio-shared-cansleep-0002-pinctrl-meson-restore-non-sleeping-gpio.patch
 
 # X2 Patches
 echo "Copying X2 patches..."
