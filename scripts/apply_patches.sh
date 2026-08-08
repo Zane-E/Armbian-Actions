@@ -116,6 +116,9 @@ echo "Copying 5T patches..."
 cp -f ${GITHUB_WORKSPACE}/patch/5T/* patch/kernel/rk35xx-vendor-6.1/
 sed -i 's|https://github.com/armbian/linux-rockchip.git|https://github.com/zane-e/linux-rockchip.git|g' config/sources/families/rk35xx.conf
 sed -i 's|https://github.com/armbian/linux-rockchip.git|https://github.com/zane-e/linux-rockchip.git|g' config/sources/families/rockchip-rk3588.conf
+sed -i 's/rk-6\.1-rkr5\.1/rk-6.1-rkr7.2/g; s/v6\.1\.115/v6.1.172/g' patch/kernel/rk35xx-vendor-6.1/0000.patching_config.yaml
+sed -i 's/branch:rk-6\.1-rkr5\.1/branch:rk-6.1-rkr7.2/g' config/sources/families/rockchip-rk3588.conf
+sed -i 's/branch:rk-6\.1-rkr5\.1/branch:rk-6.1-rkr7.2/g' config/sources/families/rk35xx.conf
 
 # N1 Patches
 echo "Copying N1 patches..."
@@ -145,6 +148,10 @@ cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/a
 cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/sunxi-7.0/patches.armbian/
 sed -i '471a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archive/sunxi-6.18/series.conf
 sed -i '429a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archive/sunxi-7.0/series.conf
+
+# Uefi-arm64 Patches
+cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/uefi-arm64-6.18/
+cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/uefi-arm64-7.1/
 
 # Re-enable Meson for the new kernel
 sed -i '28s/^/#/' config/sources/families/include/meson_common.inc

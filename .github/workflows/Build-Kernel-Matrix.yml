@@ -157,7 +157,9 @@ jobs:
           case "${BoardFamily}" in
             rockchip64) BoardFamily="nanopct4" ;;
             meson64)    BoardFamily="aml-s9xx-box" ;;
+            sunxi64)    BoardFamily="radxa-cubie-a5e" ;;
             rk35xx)     BoardFamily="rock-5c" ;;
+            arm64)      BoardFamily="uefi-arm64" ;;
             meson)      BoardFamily="onecloud" ;;
           esac
           [ "${{ matrix.branch }}" = "flippy" ] && EXTRA_ARGS="EXTRAWIFI=no DISABLE_KERNEL_PATCHES=yes" || EXTRA_ARGS=""
