@@ -494,6 +494,7 @@ clean_boot_old_files() {
     local dtb_link
     local file
     local pattern
+    local old_files=()
     local patterns=(
         "initrd.img-*"
         "uInitrd-*"
@@ -510,7 +511,6 @@ clean_boot_old_files() {
     fi
 
     current_version_now=$(basename "${dtb_link}" | sed 's/dtb-//')
-    echo -e "${INFO} 开始清理旧版本文件..."
 
     cd "${boot_dir}" || {
         echo -e "${ERROR} 无法进入 /boot，跳过清理！"
@@ -520,16 +520,32 @@ clean_boot_old_files() {
     for pattern in "${patterns[@]}"; do
         for file in ${pattern}; do
             [[ "${file}" == "${pattern}" ]] && continue
-            if [[ "${file}" == *"${current_version_now}"* ]]; then
-                echo -e "${INFO} 保留：[\033[92m ${file} \033[0m]"
-            else
-                echo -e "${INFO} 删除：[\033[91m ${file} \033[0m]"
-                rm -rf "${file}"
+
+            if [[ "${file}" != *"${current_version_now}"* ]]; then
+                old_files+=("${file}")
             fi
         done
     done
 
-    echo -e "${SUCCESS} 清理完成！"
+    if [[ ${#old_files[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    echo -e "${INFO} 发现以下旧版本内核文件："
+    for file in "${old_files[@]}"; do
+        echo -e "${INFO} [\033[91m ${file} \033[0m]"
+    done
+
+    if prompt_yes_no "${OPTIONS} 是否清理上述旧内核文件？[\033[92mY\033[0m/n]：" "y"; then
+        echo -e "${INFO} 开始清理旧版本文件..."
+        for file in "${old_files[@]}"; do
+            echo -e "${INFO} 删除：[\033[91m ${file} \033[0m]"
+            rm -rf "${file}"
+        done
+        echo -e "${SUCCESS} 清理完成！"
+    else
+        echo -e "${INFO} 您已选择保留旧内核文件。"
+    fi
 }
 
 normalize_words() {
@@ -613,7 +629,7 @@ main() {
     uninstall_linux_libc_dev
     install_kernel_packages
     cleanup_temp_dir
-    [[ "${LINUXFAMILY}" =~ ^(rockchip64|rk35xx)$ ]] && clean_boot_old_files
+    [[ "${LINUXFAMILY}" =~ ^(rockchip64|rk35xx)(-flippy)?$ ]] && clean_boot_old_files
     reboot_system
 }
 
