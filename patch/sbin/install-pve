@@ -594,7 +594,7 @@ install_pve() {
         if [[ ${install_result} -eq 0 ]]; then
 
             if [[ -f /etc/ophub-release ]]; then
-                echo -e "${INFO} 正在更新证书..."
+                echo -e "${STEPS} 正在更新证书..."
                 require_command pvecm
                 rm -f /etc/pve/pve-root-ca.pem /etc/pve/priv/pve-root-ca.* /etc/pve/local/pve-ssl.*
                 pvecm updatecerts -f >/dev/null 2>&1 || true
