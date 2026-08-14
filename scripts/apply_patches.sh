@@ -145,9 +145,9 @@ cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/roc
 # Radxa-cubie-a5e Patches for 1G ram
 cp -f ${GITHUB_WORKSPACE}/patch/A5E/edit-dram-parameters.patch patch/u-boot/v2026.01/board_radxa-cubie-a5e/
 cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/sunxi-6.18/patches.armbian/
-cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/sunxi-7.0/patches.armbian/
+cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/sunxi-7.1/patches.armbian/
 sed -i '471a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archive/sunxi-6.18/series.conf
-sed -i '429a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archive/sunxi-7.0/series.conf
+sed -i '429a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archive/sunxi-7.1/series.conf
 
 # Uefi-arm64 Patches
 cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/uefi-arm64-6.18/
