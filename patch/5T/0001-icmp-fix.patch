@@ -1,0 +1,14 @@
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 4f088fa1c2f2..963a89ae9c26 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -515,6 +515,9 @@ static struct rtable *icmp_route_lookup(
+ 	if (!IS_ERR(rt)) {
+ 		if (rt != rt2)
+ 			return rt;
++		if (inet_addr_type_dev_table(net, route_lookup_dev,
++								     fl4->daddr) == RTN_LOCAL)
++			return rt;
+ 	} else if (PTR_ERR(rt) == -EPERM) {
+ 		rt = NULL;
+ 	} else

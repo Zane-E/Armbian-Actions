@@ -443,7 +443,7 @@ repositories_select() {
         echo -e "${INFO} 请选择版本："
         echo -e "${SN} [\033[96m 1 \033[0m] -> Proxmox VE 9 [\033[92m 官方版 by Proxmox \033[0m]"
         echo -e "${SN} [\033[96m 2 \033[0m] -> Proxmox VE 9 [\033[92m 定制版 by Lierfang \033[0m]"
-        read -r -p "$(echo -e "${OPTIONS} 请输入 [\033[92m 1-2 \033[0m] [ 回车默认 \033[92m1\033[0m ]：" )" select_choice
+        read -r -p "$(echo -e "${OPTIONS} 请输入 [\033[96m 1-2 \033[0m] [ 回车默认 \033[92m1\033[0m ]：" )" select_choice
 
         select_choice="${select_choice:-1}"
 
