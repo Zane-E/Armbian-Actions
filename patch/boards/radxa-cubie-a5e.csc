@@ -58,20 +58,3 @@ function post_family_tweaks__enable_aic8800_bluetooth_service() {
 		display_alert "$BOARD" "aic-bluetooth.service not found in image; skipping enable" "warn"
 	fi
 }
-
-# 自动在 armbianEnv.txt 中追加内置内核参数
-function post_family_tweaks_bsp__add_extraargs() {
-	display_alert "$BOARD" "Adding net.ifnames=0 to armbianEnv.txt" "info"
-	
-	# 确保 /boot 目录存在
-	mkdir -p "${destination}"/boot
-	
-	# 检查文件中是否已有 extraargs，有则追加，没有则新建
-	if grep -q "^extraargs=" "${destination}"/boot/armbianEnv.txt 2>/dev/null; then
-		# 如果已有 extraargs，在末尾加空格并追加参数
-		sed -i 's/^extraargs=\(.*\)/extraargs=\1 net.ifnames=0/' "${destination}"/boot/armbianEnv.txt
-	else
-		# 如果没有，直接写入新行
-		echo "extraargs=net.ifnames=0" >> "${destination}"/boot/armbianEnv.txt
-	fi
-}
