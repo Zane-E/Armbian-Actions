@@ -1,0 +1,29 @@
+--- a/arch/arm64/boot/dts/rockchip/rk3588-rock-5t.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3588-rock-5t.dts
+@@ -29,8 +29,15 @@
+ 	fan0: pwm-fan {
+ 		compatible = "pwm-fan";
+ 		#cooling-cells = <2>;
+-		cooling-levels = <0 64 128 192 255>;
+-		pwms = <&pwm1 0 60000 0>;
++		cooling-levels = <0 100 140 190 225 255>;
++		pwms = <&pwm1 0 50000 0>;
++		rockchip,temp-trips = <
++			45000   1
++			55000   2
++			65000   3
++			70000   4
++			75000   5
++		>;
+ 	};
+ 
+ 	vcc12v_dcin: vcc12v-dcin {
+@@ -939,7 +946,7 @@
+ };
+ 
+ &threshold {
+-	temperature = <60000>;
++	temperature = <45000>;
+ };
+ 
+ &soc_thermal {
