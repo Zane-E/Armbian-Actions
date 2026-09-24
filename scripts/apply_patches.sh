@@ -147,6 +147,14 @@ cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/a
 sed -i '475a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archive/sunxi-6.18/series.conf
 sed -i '585a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archive/sunxi-7.2/series.conf
 
+# Radxa-dragon-q8b
+sed -i 's|tag:v7.2.3|tag:v7.2.7|g' config/sources/families/sc8280xp.conf
+cp -f ${GITHUB_WORKSPACE}/patch/Q8B/* patch/kernel/archive/sc8280xp-edge/
+rm -f patch/kernel/archive/sc8280xp-edge/0042-drm-msm-dpu-Drop-sneaky-dev_pm_opp_set_rate-0.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0044-drm-msm-dsi-Drop-dev_pm_opp_set_rate-0.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0045-drm-msm-dp-Drop-dev_pm_opp_set_rate-0.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0063-thermal-qcom-adc-tm5-drop-stale-return-check.patch
+
 # Re-enable Meson for the new kernel
 sed -i '28s/^/#/' config/sources/families/include/meson_common.inc
 rm -f patch/kernel/archive/meson-6.12/0052-drm-meson-Describe-the-HDMI-PHY-frequency-limits-of-.patch
