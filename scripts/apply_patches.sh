@@ -147,7 +147,7 @@ sed -i '475a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archiv
 sed -i '585a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archive/sunxi-7.2/series.conf
 
 # Radxa-dragon-q8b
-sed -i 's|tag:v7.2.3|tag:v7.2.7|g' config/sources/families/sc8280xp.conf
+sed -i 's|tag:v7.2.3|tag:v7.2.8|g' config/sources/families/sc8280xp.conf
 cp -f ${GITHUB_WORKSPACE}/patch/Q8B/* patch/kernel/archive/sc8280xp-edge/
 rm -f patch/kernel/archive/sc8280xp-edge/0042-drm-msm-dpu-Drop-sneaky-dev_pm_opp_set_rate-0.patch
 rm -f patch/kernel/archive/sc8280xp-edge/0044-drm-msm-dsi-Drop-dev_pm_opp_set_rate-0.patch
