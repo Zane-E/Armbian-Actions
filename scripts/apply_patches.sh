@@ -141,7 +141,6 @@ cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/roc
 cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/rockchip64-7.2/dt/
 
 # Radxa-cubie-a5e
-cp -f ${GITHUB_WORKSPACE}/patch/A5E/7002-clk-and-dts-sun55i-a523.patch patch/kernel/archive/sunxi-7.2/patches.armbian/
 cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/sunxi-6.18/patches.armbian/
 cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/sunxi-7.2/patches.armbian/
 sed -i '475a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archive/sunxi-6.18/series.conf
