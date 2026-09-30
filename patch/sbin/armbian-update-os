@@ -1,0 +1,383 @@
+#!/bin/bash
+
+# ==============================================================================
+#  脚本名称：armbian-update-os
+#  脚本功能：从 GitHub Release 下载或安装本地 Armbian 系统升级包
+# ==============================================================================
+
+set -o pipefail
+
+readonly ARMBIAN_RELEASE_FILE="/etc/armbian-release"
+readonly OS_RELEASE_FILE="/etc/os-release"
+GITHUB_REPO="Zane-E/Armbian-Actions"
+readonly -a PROXIES=("gh-proxy.com" "ghproxy.net" "ghfast.top")
+
+readonly STEPS="[\033[95m 步骤 \033[0m]"
+readonly INFO="[\033[94m 信息 \033[0m]"
+readonly SUCCESS="[\033[92m 成功 \033[0m]"
+readonly OPTIONS="[\033[93m 选项 \033[0m]"
+readonly ERROR="[\033[91m 错误 \033[0m]"
+readonly SN="[\033[96m 序号 \033[0m]"
+
+ARMBIAN_VERSION=""
+BOARD=""
+ORIGINAL_DIR=""
+OS_BRANCH=""
+OS_FILE=""
+OS_VERSION=""
+PROXY_URL=""
+SKIP_FILE_CHECK=false
+TEMP_DIR=""
+VERSION_CODENAME=""
+
+log_error() {
+    echo -e "${ERROR} ${1}"
+}
+
+die() {
+    log_error "${1}"
+    exit 1
+}
+
+error() {
+    die "${1}"
+}
+
+require_command() {
+    command -v "${1}" >/dev/null 2>&1 || error "缺少依赖命令：[\033[92m ${1} \033[0m]"
+}
+
+check_grep_pcre() {
+    echo "1.2.3" | grep -oP '^[0-9]+\.[0-9]+' >/dev/null 2>&1 ||
+        error "当前 grep 不支持 -P 参数，请安装 GNU grep！"
+}
+
+check_dependencies() {
+    local cmd
+    local required_commands=(apt-get awk basename curl cut dpkg dpkg-query find grep id mktemp reboot rm sed shuf sleep sort tail tar)
+
+    for cmd in "${required_commands[@]}"; do
+        require_command "${cmd}"
+    done
+
+    check_grep_pcre
+}
+
+check_root() {
+    [[ "$(id -u)" -eq 0 ]] || error "请使用 root 用户运行！"
+}
+
+prompt_yes_no() {
+    local prompt="${1}"
+    local default="${2:-y}"
+    local choice
+
+    read -r -p "$(echo -e "${prompt}")" choice
+    choice="${choice:-${default}}"
+    [[ "${choice}" =~ ^[Yy]$ ]]
+}
+
+validate_version_format() {
+    [[ "${1}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+        error "版本号格式不正确：[\033[91m ${1} \033[0m]，请使用 x.y.z 的格式，例如：26.02.1"
+}
+
+load_system_info() {
+    [[ -f "${ARMBIAN_RELEASE_FILE}" ]] || error "未找到 ${ARMBIAN_RELEASE_FILE} 文件！"
+    [[ -f "${OS_RELEASE_FILE}" ]] || error "未找到 ${OS_RELEASE_FILE} 文件！"
+
+    BOARD=$(grep "^BOARD=" "${ARMBIAN_RELEASE_FILE}" 2>/dev/null | cut -d'=' -f2) ||
+        error "未能成功获取 BOARD，请检查 ${ARMBIAN_RELEASE_FILE} 文件！"
+    ARMBIAN_VERSION=$(grep "^VERSION=" "${ARMBIAN_RELEASE_FILE}" 2>/dev/null | cut -d'=' -f2) ||
+        error "未能成功获取 VERSION，请检查 ${ARMBIAN_RELEASE_FILE} 文件！"
+    VERSION_CODENAME=$(grep "^VERSION_CODENAME=" "${OS_RELEASE_FILE}" 2>/dev/null | cut -d'=' -f2) ||
+        error "未能成功获取 VERSION_CODENAME，请检查 ${OS_RELEASE_FILE} 文件！"
+    OS_BRANCH=$(dpkg-query -W -f='${Package}\n' | awk -v b="${BOARD}" '$1 ~ "armbian-bsp-cli-"b"-" {p="armbian-bsp-cli-"b"-"; sub(p,"",$1); split($1,a,"-"); print a[1]; exit}')
+
+    [[ -n "${BOARD}" ]] || error "BOARD 为空，请检查 ${ARMBIAN_RELEASE_FILE} 文件！"
+    [[ -n "${ARMBIAN_VERSION}" ]] || error "VERSION 为空，请检查 ${ARMBIAN_RELEASE_FILE} 文件！"
+    [[ -n "${VERSION_CODENAME}" ]] || error "VERSION_CODENAME 为空，请检查 ${OS_RELEASE_FILE} 文件！"
+    [[ -n "${OS_BRANCH}" ]] || error "OS_BRANCH 为空，请检查系统 BSP 包！"
+}
+
+create_temp_dir() {
+    ORIGINAL_DIR=$(pwd)
+    TEMP_DIR=$(mktemp -d)
+    [[ -d "${TEMP_DIR}" ]] || error "无法创建临时目录！"
+    trap cleanup_temp_dir EXIT
+    echo -e "${STEPS} 创建临时目录：[\033[92m ${TEMP_DIR} \033[0m]"
+}
+
+cleanup_temp_dir() {
+    trap - EXIT
+    [[ -n "${ORIGINAL_DIR}" && -d "${ORIGINAL_DIR}" ]] && cd "${ORIGINAL_DIR}" >/dev/null 2>&1 || true
+    [[ -n "${TEMP_DIR}" && -d "${TEMP_DIR}" ]] || return 0
+    rm -rf "${TEMP_DIR}"
+    TEMP_DIR=""
+    echo -e "${SUCCESS} 临时目录已删除！"
+}
+
+download_file() {
+    local output_file="${1}"
+    local url="${2}"
+
+    curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 5 --max-time 300 \
+        -o "${output_file}" "${url}" >/dev/null 2>&1
+}
+
+fetch_text() {
+    local url="${1}"
+
+    curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 5 --max-time 30 "${url}"
+}
+
+url_available() {
+    local url="${1}"
+    local max_time="${2:-3}"
+
+    curl -fIsL --retry 2 --retry-delay 1 --connect-timeout 3 --max-time "${max_time}" "${url}" >/dev/null 2>&1
+}
+
+check_and_install_file() {
+    local choice
+    local exit_num
+    local os_files
+
+    mapfile -t os_files < <(find . -maxdepth 1 -regextype posix-extended \
+        -regex "\./[0-9]+\.[0-9]+\.[0-9]+_${BOARD}_${VERSION_CODENAME}_${OS_BRANCH}\.tar\.gz" \
+        -exec basename {} \; | sort -Vr)
+
+    [[ ${#os_files[@]} -gt 0 ]] || return 0
+
+    if [[ ${#os_files[@]} -eq 1 ]]; then
+        OS_FILE="${os_files[0]}"
+        echo -e "${INFO} 发现文件：[\033[92m ${OS_FILE} \033[0m]"
+        prompt_yes_no "${OPTIONS} 是否安装文件？[\033[92mY\033[0m/n]：" "y" ||
+            { echo -e "${INFO} 您选择不安装！"; exit 0; }
+    else
+        echo -e "${INFO} 发现文件:"
+        for i in "${!os_files[@]}"; do
+            echo -e "${SN} [\033[96m $((i + 1)) \033[0m] -> [\033[92m ${os_files[$i]} \033[0m]"
+        done
+
+        exit_num=$(( ${#os_files[@]} + 1 ))
+        echo -e "${SN} [\033[96m ${exit_num} \033[0m] -> [\033[92m 退出 \033[0m]"
+
+        while true; do
+            read -r -p "$(echo -e "${OPTIONS} 请输入序号 [\033[96m 1-${exit_num} \033[0m]：")" choice
+            if [[ "${choice}" =~ ^[0-9]+$ ]]; then
+                if [[ "${choice}" -eq "${exit_num}" ]]; then
+                    echo -e "${INFO} 已退出选择！"
+                    exit 0
+                fi
+                if [[ "${choice}" -ge 1 && "${choice}" -le ${#os_files[@]} ]]; then
+                    OS_FILE="${os_files[$((choice - 1))]}"
+                    break
+                fi
+            fi
+            echo -e "${ERROR} 选择无效，请重新输入！"
+        done
+    fi
+
+    create_temp_dir
+    tar -xzf "${OS_FILE}" -C "${TEMP_DIR}" || error "解压失败，请检查文件！"
+    echo -e "${SUCCESS} 文件解压完成！"
+    cd "${TEMP_DIR}" || error "无法进入临时目录：${TEMP_DIR}"
+    install_all_debs
+    cleanup_temp_dir
+
+    if prompt_yes_no "${OPTIONS} 是否删除原文件？[\033[92mY\033[0m/n]：" "y"; then
+        rm -f "${OS_FILE}"
+    fi
+
+    reboot_system
+}
+
+get_latest_version() {
+    local filtered_versions
+    local versions
+
+    versions=$(fetch_text "https://github.com/${GITHUB_REPO}/releases/expanded_assets/Armbian-Debs" 2>/dev/null) ||
+        error "无法访问 GITHUB，检查网络连接！"
+
+    filtered_versions=$(echo "${versions}" |
+        grep -oP '>\K[0-9]+\.[0-9]+\.[0-9]+_('"${BOARD}"')_('"${VERSION_CODENAME}"')_('"${OS_BRANCH}"')\.tar\.gz<' |
+        grep -oP '[0-9]+\.[0-9]+\.[0-9]+')
+
+    [[ -n "${filtered_versions}" ]] || error "未找到相符升级文件！"
+    echo "${filtered_versions}" | sort -V | tail -n 1
+}
+
+check_and_set_os_version() {
+    local latest_version
+
+    if [[ -n "${OS_VERSION}" ]]; then
+        echo -e "${INFO} 指定系统版本：[\033[92m ${OS_VERSION} \033[0m]"
+        return 0
+    fi
+
+    latest_version=$(get_latest_version) || error "无法获取最新的系统版本！"
+    [[ "${latest_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || error "获取到的最新版本号格式错误！"
+
+    echo -e "${INFO} 最新系统版本：[\033[92m ${latest_version} \033[0m]"
+    if [[ "${ARMBIAN_VERSION}" == "${latest_version}" ]]; then
+        echo -e "${INFO} 您的系统已是最新版本！"
+        exit 0
+    fi
+
+    if [[ "$(printf '%s\n' "${ARMBIAN_VERSION}" "${latest_version}" | sort -V | tail -n 1)" == "${ARMBIAN_VERSION}" ]]; then
+        echo -e "${INFO} 当前系统版本高于仓库最新版本，无需更新！"
+        exit 0
+    fi
+
+    prompt_yes_no "${OPTIONS} 检测到新版本，是否更新？[\033[92mY\033[0m/n]：" "y" ||
+        { echo -e "${INFO} 您选择不更新！"; exit 0; }
+
+    OS_VERSION="${latest_version}"
+    echo -e "${INFO} 您选择更新到最新版本：[\033[92m ${OS_VERSION} \033[0m]"
+}
+
+handle_proxy() {
+    local index
+    local proxy_url
+    local shuffled_indices
+
+    if ! prompt_yes_no "${OPTIONS} 是否使用代理下载？[y/\033[92mN\033[0m]：" "n"; then
+        PROXY_URL=""
+        echo -e "${INFO} 使用直连下载！"
+        return 0
+    fi
+
+    mapfile -t shuffled_indices < <(shuf -i "0-$(( ${#PROXIES[@]} - 1 ))" -n "${#PROXIES[@]}")
+    for index in "${shuffled_indices[@]}"; do
+        proxy_url="https://${PROXIES[$index]}/"
+        echo -e "${INFO} 尝试代理加速：[\033[92m ${PROXIES[$index]} \033[0m]"
+        if url_available "${proxy_url}" 3; then
+            PROXY_URL="${proxy_url}"
+            echo -e "${SUCCESS} 代理加速可用！"
+            return 0
+        fi
+    done
+
+    echo -e "${ERROR} 代理加速失效！"
+    prompt_yes_no "${OPTIONS} 是否尝试直连？[\033[92mY\033[0m/n]：" "y" ||
+        { echo -e "${INFO} 放弃尝试，退出脚本！"; exit 0; }
+
+    PROXY_URL=""
+    echo -e "${INFO} 使用直连下载！"
+}
+
+download_os_package() {
+    local archive_name
+    local download_url
+
+    archive_name="${OS_VERSION}_${BOARD}_${VERSION_CODENAME}_${OS_BRANCH}.tar.gz"
+    download_url="${PROXY_URL}https://github.com/${GITHUB_REPO}/releases/download/Armbian-Debs/${archive_name}"
+
+    cd "${TEMP_DIR}" || error "无法进入临时目录：${TEMP_DIR}"
+    echo -e "${STEPS} 正在下载文件：[\033[92m ${archive_name} \033[0m]"
+    download_file "${archive_name}" "${download_url}" ||
+        error "下载失败，请检查版本号或网络连接！"
+
+    echo -e "${SUCCESS} 文件下载完成！"
+    tar -xzf "${archive_name}" && rm -f "${archive_name}" || error "解压失败，请检查压缩文件！"
+    echo -e "${SUCCESS} 文件解压完成！"
+}
+
+install_all_debs() {
+    local deb
+    local deb_files=()
+    local pattern
+
+    for pattern in "base-files*.deb" "*${BOARD}-${OS_BRANCH}*.deb" "*.deb"; do
+        while IFS= read -r deb; do
+            [[ -f "${deb}" ]] && deb_files+=("${deb#./}")
+        done < <(find . -maxdepth 1 -name "${pattern}" -type f | sort -V)
+    done
+
+    [[ ${#deb_files[@]} -gt 0 ]] || error "当前目录未找到所需文件！"
+    mapfile -t deb_files < <(printf "%s\n" "${deb_files[@]}" | awk '!seen[$0]++')
+
+    echo -e "${INFO} 共 ${#deb_files[@]} 个文件，开始逐个安装..."
+    for deb in "${deb_files[@]}"; do
+        echo -e "${STEPS} 正在安装：[\033[92m ${deb} \033[0m]"
+        if ! dpkg -i "${deb}" >/dev/null 2>&1; then
+            echo -e "${ERROR} 安装失败！"
+            echo -e "${STEPS} 修复依赖中..."
+            apt-get -f install -y >/dev/null 2>&1 || error "修复依赖失败！"
+            echo -e "${SUCCESS} 依赖修复成功！"
+            echo -e "${STEPS} 重新安装：[\033[92m ${deb} \033[0m]"
+            dpkg -i "${deb}" >/dev/null 2>&1 || error "重新安装失败！"
+        fi
+    done
+
+    echo -e "${SUCCESS} 所有文件安装完成！"
+}
+
+reboot_system() {
+    if prompt_yes_no "${OPTIONS} 是否立即重启系统？[\033[92mY\033[0m/n]：" "y"; then
+        for ((i = 5; i >= 0; i--)); do
+            echo -ne "${STEPS} 倒计时：[ "
+            for ((j = 5; j > i; j--)); do echo -ne "\e[31m=\e[0m"; done
+            for ((j = i; j > 0; j--)); do echo -ne "\e[32m-\e[0m"; done
+            echo -ne " ]\r"
+            sleep 1
+        done
+        echo -e "\n${INFO} 重启中..."
+        reboot
+    else
+        echo -e "${INFO} 请手动重启系统以使更改生效！"
+    fi
+
+    exit 0
+}
+
+parse_args() {
+    OPTERR=0
+    while getopts ":k:u:" opt; do
+        case "${opt}" in
+            k)
+                [[ -n "${OPTARG}" ]] || error "请在 -k 后指定版本号，格式：-k x.y.z"
+                validate_version_format "${OPTARG}"
+                OS_VERSION="${OPTARG}"
+                SKIP_FILE_CHECK=true
+                ;;
+            u)
+                [[ -n "${OPTARG}" ]] || error "请在 -u 后指定仓库，格式：-u owner/repo"
+                [[ "${OPTARG}" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] ||
+                    error "仓库格式错误！正确格式为：用户名/仓库名，例如：Zane-E/Armbian-Actions"
+                GITHUB_REPO="${OPTARG}"
+                SKIP_FILE_CHECK=true
+                ;;
+            :)
+                error "选项 \033[91m-${OPTARG}\033[0m 缺少参数"
+                ;;
+            *)
+                error "未知参数：\033[91m-${OPTARG}\033[0m"
+                ;;
+        esac
+    done
+}
+
+main() {
+    check_dependencies
+    load_system_info
+    parse_args "$@"
+
+    echo -e "${INFO} 当前系统信息：[\033[92m ${BOARD} \033[0m] [\033[92m ${VERSION_CODENAME} \033[0m] [\033[92m ${OS_BRANCH} \033[0m]"
+    echo -e "${INFO} 当前系统版本：[\033[92m ${ARMBIAN_VERSION} \033[0m]"
+
+    check_root
+
+    [[ "${SKIP_FILE_CHECK}" == true ]] || check_and_install_file
+
+    check_and_set_os_version
+    handle_proxy
+    create_temp_dir
+    download_os_package
+    install_all_debs
+    cleanup_temp_dir
+    reboot_system
+}
+
+main "$@"
