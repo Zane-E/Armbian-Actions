@@ -92,4 +92,3 @@
 ## 📌 相关链接
 - [Armbian 官方仓库](https://github.com/armbian/build)
 - [DAE 官方仓库](https://github.com/daeuniverse/dae)
-- [PVE 安装教程](https://www.zhou.pp.ua/)
