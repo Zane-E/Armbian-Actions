@@ -395,7 +395,7 @@ setup_repositories_proxmox() {
     echo -e "${SN} [\033[96m 2 \033[0m] -> [\033[92m 中国科学技术大学 \033[0m]"
     echo -e "${SN} [\033[96m 3 \033[0m] -> [\033[92m 北京外国语大学 \033[0m]"
     echo -e "${SN} [\033[96m 4 \033[0m] -> [\033[92m 清华大学 \033[0m]"
-    echo -e "${SN} [\033[96m 5 \033[0m] -> [\033[92m 南京大学 \033[0m]"
+    echo -e "${SN} [\033[96m 5 \033[0m] -> [\033[92m 中山大学 \033[0m]"
     echo -e "${SN} [\033[96m 6 \033[0m] -> [\033[92m 官方源 \033[0m]"
 
     while true; do
@@ -407,7 +407,7 @@ setup_repositories_proxmox() {
             2) mirror="https://mirrors.ustc.edu.cn/proxmox/debian/pve" ;;
             3) mirror="https://mirrors.bfsu.edu.cn/proxmox/debian/pve" ;;
             4) mirror="https://mirrors.tuna.tsinghua.edu.cn/proxmox/debian/pve" ;;
-            5) mirror="https://mirrors.nju.edu.cn/proxmox/debian/pve" ;;
+            5) mirror="https://mirror.sysu.edu.cn/proxmox/debian/pve" ;;
             6) mirror="http://download.proxmox.com/debian/pve" ;;
             *) echo -e "${ERROR} 输入无效，请重新选择！"; continue ;;
         esac
