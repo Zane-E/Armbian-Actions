@@ -44,7 +44,7 @@ jobs:
 
           def is_valid_combo(family, branch):
               if family == "rk35xx":
-                  return branch in {"vendor", "vendor-next", "flippy"}
+                  return branch in {"vendor", "vendor-next"}
               if family == "meson":
                   return branch in {"current"}
               if family in {"rockchip64", "meson64"}:
@@ -163,8 +163,7 @@ jobs:
             arm64)      BoardFamily="uefi-arm64" ;;
             meson)      BoardFamily="onecloud" ;;
           esac
-          [ "${{ matrix.branch }}" = "flippy" ] && EXTRA_ARGS="EXTRAWIFI=no DISABLE_KERNEL_PATCHES=yes" || EXTRA_ARGS=""
-          ./compile.sh kernel BOARD=${BoardFamily} BRANCH=${{ matrix.branch }} PREFER_DOCKER=yes DOCKER_ARMBIAN_BASE_IMAGE=ubuntu:resolute DEB_COMPRESS=xz SHARE_LOG=yes ${EXTRA_ARGS}
+          ./compile.sh kernel BOARD=${BoardFamily} BRANCH=${{ matrix.branch }} PREFER_DOCKER=yes DOCKER_ARMBIAN_BASE_IMAGE=ubuntu:resolute DEB_COMPRESS=xz SHARE_LOG=yes
 
       - name: Prepare Kernel Metadata
         working-directory: /mnt/workdir/build/output/debs
@@ -177,7 +176,6 @@ jobs:
             echo "KERNEL_VERSION=${KERNEL_VERSION}" >> "${GITHUB_ENV}"
             echo "KERNEL_VERSION: ${KERNEL_VERSION}"
             LINUX_FAMILY=$(echo "${Kernel_File}" | cut -d '_' -f 1 | awk -F '-' '{print $NF}')
-            [ "${{ matrix.branch }}" = "flippy" ] && LINUX_FAMILY="${LINUX_FAMILY}-flippy"
             echo "LINUX_FAMILY=${LINUX_FAMILY}" >> "${GITHUB_ENV}"
             echo "LINUX_FAMILY: ${LINUX_FAMILY}"
           else

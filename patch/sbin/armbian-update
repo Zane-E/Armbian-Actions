@@ -81,11 +81,10 @@ prompt_yes_no() {
 }
 
 usage() {
-    echo -e "${INFO} 使用方法：[-k <version>] [-u <owner/repo>] [-f] [-l] [-p <prefix>] [-n <num>] [-h]"
+    echo -e "${INFO} 使用方法：[-k <version>] [-u <owner/repo>] [-l] [-p <prefix>] [-n <num>] [-h]"
     echo -e "${INFO} 参数说明："
     echo -e "${INFO}   -k <version>    指定要安装的内核版本，格式为：x.y.z ，例如：6.12.1"
     echo -e "${INFO}   -u <owner/repo> 指定 GitHub 仓库，格式为：用户名/仓库名，例如：Zane-E/Armbian-Actions"
-    echo -e "${INFO}   -f              指定 flippy 内核，慎用"
     echo -e "${INFO}   -l              显示仓库内核版本列表 (Top${VERSION_TOP}) ，可组合以下参数："
     echo -e "${INFO}     -p <prefix>     主版本号，例如：6.15 ，多版本请用空格分隔并加引号，例如：\"6.15 6.16\" 或全部 all"
     echo -e "${INFO}     -n <num>        列表数量，例如：10"
@@ -557,7 +556,7 @@ normalize_words() {
 
 parse_args() {
     OPTERR=0
-    while getopts "k:lfhu:n:p:" opt; do
+    while getopts "k:lhu:n:p:" opt; do
         case "${opt}" in
             k)
                 validate_version_format "${OPTARG}"
@@ -591,9 +590,6 @@ parse_args() {
                 [[ "${OPTARG}" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] ||
                     error "仓库格式错误！正确格式为：用户名/仓库名，例如：Zane-E/Armbian-Actions"
                 GITHUB_REPO="${OPTARG}"
-                ;;
-            f)
-                LINUXFAMILY="${LINUXFAMILY}-flippy"
                 ;;
             h|*)
                 usage
@@ -629,7 +625,7 @@ main() {
     uninstall_linux_libc_dev
     install_kernel_packages
     cleanup_temp_dir
-    [[ "${LINUXFAMILY}" =~ ^(rockchip64|rk35xx)(-flippy)?$ ]] && clean_boot_old_files
+    [[ "${LINUXFAMILY}" =~ ^(rockchip64|rk35xx)?$ ]] && clean_boot_old_files
     reboot_system
 }
 
