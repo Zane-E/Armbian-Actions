@@ -109,13 +109,13 @@ cp -f ${GITHUB_WORKSPACE}/patch/T4/t4.patch patch/kernel/archive/rockchip64-7.3/
 echo "Copying 5C patches..."
 cp -f ${GITHUB_WORKSPACE}/patch/5C/reopen_disabled_nodes.patch patch/u-boot/legacy/u-boot-radxa-rk35xx/board_rock-5c/
 cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information.patch patch/kernel/rk35xx-vendor-6.1/
+cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information.patch patch/kernel/rk35xx-vendor-6.12/
 cp -f ${GITHUB_WORKSPACE}/patch/5C/diyfan-5c.patch patch/kernel/rk35xx-vendor-6.1/
 
 # 5T Patches
 echo "Copying 5T patches..."
 cp -f ${GITHUB_WORKSPACE}/patch/5T/* patch/kernel/rk35xx-vendor-6.1/
-sed -i 's|https://github.com/armbian/linux-rockchip.git|https://github.com/zane-e/linux-rockchip.git|g' config/sources/families/rk35xx.conf
-sed -i 's|https://github.com/armbian/linux-rockchip.git|https://github.com/zane-e/linux-rockchip.git|g' config/sources/families/rockchip-rk3588.conf
+sed -i 's|https://github.com/armbian/linux-rockchip.git|https://github.com/zane-e/linux-rockchip.git|g' config/sources/families/include/rockchip_vendor_common.inc
 
 # N1 Patches
 echo "Copying N1 patches..."
@@ -129,12 +129,14 @@ rm -f config/boards/panther-x2.eos
 cp -f ${GITHUB_WORKSPACE}/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-6.18/dt/
 cp -f ${GITHUB_WORKSPACE}/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-7.3/dt/
 cp -r ${GITHUB_WORKSPACE}/patch/X2/dt patch/kernel/rk35xx-vendor-6.1/
+cp -r ${GITHUB_WORKSPACE}/patch/X2/dt patch/kernel/rk35xx-vendor-6.12/
 
 # JP Patches
 echo "Copying JP patches..."
 cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-6.18/dt/
 cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-7.3/dt/
 cp -f ${GITHUB_WORKSPACE}/patch/JP/dt/rk3566-jp-tvbox.dts patch/kernel/rk35xx-vendor-6.1/dt/
+cp -f ${GITHUB_WORKSPACE}/patch/JP/dt/rk3566-jp-tvbox.dts patch/kernel/rk35xx-vendor-6.12/dt/
 
 # TVI3315A Patches
 cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/rockchip64-6.18/dt/

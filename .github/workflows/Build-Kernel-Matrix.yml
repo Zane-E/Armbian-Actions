@@ -44,7 +44,7 @@ jobs:
 
           def is_valid_combo(family, branch):
               if family == "rk35xx":
-                  return branch in {"vendor", "flippy"}
+                  return branch in {"vendor", "vendor-next", "flippy"}
               if family == "meson":
                   return branch in {"current"}
               if family in {"rockchip64", "meson64"}:
