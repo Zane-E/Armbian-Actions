@@ -59,12 +59,6 @@ cp -f ${GITHUB_WORKSPACE}/patch/JP/dt/rk3566-jp-tvbox.dts patch/kernel/rk35xx-ve
 cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/rockchip64-6.18/dt/
 cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/rockchip64-7.3/dt/
 
-# Radxa-cubie-a5e
-cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/sunxi-6.18/patches.armbian/
-cp -f ${GITHUB_WORKSPACE}/patch/T4/fix-CPU-information-6.16.patch patch/kernel/archive/sunxi-7.2/patches.armbian/
-sed -i '475a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archive/sunxi-6.18/series.conf
-sed -i '585a patches.armbian/fix-CPU-information-6.16.patch' patch/kernel/archive/sunxi-7.2/series.conf
-
 # Radxa-dragon-q8b
 sed -i '45d' config/sources/families/sc8280xp.conf
 cp -f ${GITHUB_WORKSPACE}/patch/Q8B/* patch/kernel/archive/sc8280xp-edge/
