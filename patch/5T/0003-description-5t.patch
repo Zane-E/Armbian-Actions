@@ -1,0 +1,55 @@
+--- a/arch/arm64/boot/dts/rockchip/rk3588-rock-5t.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3588-rock-5t.dts
+@@ -24,6 +24,11 @@
+ 	model = "Radxa ROCK 5T";
+ 	compatible = "radxa,rock-5t", "rockchip,rk3588";
+ 
++	aliases {
++		ethernet0 = &rtl_eth0;
++		ethernet1 = &rtl_eth1;
++	};
++
+ 	/delete-node/ chosen;
+ 
+ 	fan0: pwm-fan {
+@@ -896,12 +901,40 @@
+ 	reset-gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_HIGH>;
+ 	vpcie3v3-supply = <&vcc3v3_pcie2x1l2>;
+ 	status = "okay";
++
++	pcie@0,0 {
++		reg = <0x400000 0 0 0 0>;
++		#address-cells = <3>;
++		#size-cells = <2>;
++		ranges;
++		device_type = "pci";
++		bus-range = <0x40 0x4f>;
++
++		rtl_eth0: ethernet@0,0 {
++			compatible = "pci10ec,8125";
++			reg = <0x410000 0 0 0 0>;
++		};
++	};
+ };
+ 
+ &pcie2x1l1 {
+ 	reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
+ 	vpcie3v3-supply = <&vcc3v3_pcie2x1l1>;
+ 	status = "okay";
++
++	pcie@0,0 {
++		reg = <0x300000 0 0 0 0>;
++		#address-cells = <3>;
++		#size-cells = <2>;
++		ranges;
++		device_type = "pci";
++		bus-range = <0x30 0x3f>;
++
++		rtl_eth1: ethernet@0,0 {
++			compatible = "pci10ec,8125";
++			reg = <0x310000 0 0 0 0>;
++		};
++	};
+ };
+ 
+ &pcie2x1l0 {
