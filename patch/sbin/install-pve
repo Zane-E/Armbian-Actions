@@ -391,9 +391,9 @@ setup_repositories_proxmox() {
     export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
     echo -e "${INFO} 请选择 [\033[92m Proxmox VE \033[0m] 软件源！"
-    echo -e "${SN} [\033[96m 1 \033[0m] -> [\033[92m 高校联合•自动选择 \033[0m]"
-    echo -e "${SN} [\033[96m 2 \033[0m] -> [\033[92m 中国科学技术大学 \033[0m]"
-    echo -e "${SN} [\033[96m 3 \033[0m] -> [\033[92m 北京外国语大学 \033[0m]"
+    echo -e "${SN} [\033[96m 1 \033[0m] -> [\033[92m 中国科学技术大学 \033[0m]"
+    echo -e "${SN} [\033[96m 2 \033[0m] -> [\033[92m 北京外国语大学 \033[0m]"
+    echo -e "${SN} [\033[96m 3 \033[0m] -> [\033[92m 哈尔滨工业大学 \033[0m]"
     echo -e "${SN} [\033[96m 4 \033[0m] -> [\033[92m 清华大学 \033[0m]"
     echo -e "${SN} [\033[96m 5 \033[0m] -> [\033[92m 中山大学 \033[0m]"
     echo -e "${SN} [\033[96m 6 \033[0m] -> [\033[92m 官方源 \033[0m]"
@@ -403,9 +403,9 @@ setup_repositories_proxmox() {
         choice=${choice:-1}
 
         case "$choice" in
-            1) mirror="https://mirrors.cernet.edu.cn/proxmox/debian/pve" ;;
-            2) mirror="https://mirrors.ustc.edu.cn/proxmox/debian/pve" ;;
-            3) mirror="https://mirrors.bfsu.edu.cn/proxmox/debian/pve" ;;
+            1) mirror="https://mirrors.ustc.edu.cn/proxmox/debian/pve" ;;
+            2) mirror="https://mirrors.bfsu.edu.cn/proxmox/debian/pve" ;;
+            3) mirror="https://mirrors.hit.edu.cn/proxmox/debian/pve" ;;
             4) mirror="https://mirrors.tuna.tsinghua.edu.cn/proxmox/debian/pve" ;;
             5) mirror="https://mirror.sysu.edu.cn/proxmox/debian/pve" ;;
             6) mirror="http://download.proxmox.com/debian/pve" ;;
