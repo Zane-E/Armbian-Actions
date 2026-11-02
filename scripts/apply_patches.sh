@@ -45,15 +45,11 @@ echo "Copying X2 patches..."
 rm -f config/boards/panther-x2.eos
 cp -f ${GITHUB_WORKSPACE}/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-6.18/dt/
 cp -f ${GITHUB_WORKSPACE}/patch/X2/rk3566-panther-x2.dts patch/kernel/archive/rockchip64-7.3/dt/
-cp -r ${GITHUB_WORKSPACE}/patch/X2/dt patch/kernel/rk35xx-vendor-6.1/
-cp -r ${GITHUB_WORKSPACE}/patch/X2/dt patch/kernel/rk35xx-vendor-6.12/
 
 # JP Patches
 echo "Copying JP patches..."
 cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-6.18/dt/
 cp -f ${GITHUB_WORKSPACE}/patch/JP/rk3566-jp-tvbox.dts patch/kernel/archive/rockchip64-7.3/dt/
-cp -f ${GITHUB_WORKSPACE}/patch/JP/dt/rk3566-jp-tvbox.dts patch/kernel/rk35xx-vendor-6.1/dt/
-cp -f ${GITHUB_WORKSPACE}/patch/JP/dt/rk3566-jp-tvbox.dts patch/kernel/rk35xx-vendor-6.12/dt/
 
 # TVI3315A Patches
 cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/rockchip64-6.18/dt/
