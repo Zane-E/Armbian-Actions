@@ -57,11 +57,6 @@ cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/roc
 
 # Radxa-dragon-q8b
 sed -i '45d' config/sources/families/sc8280xp.conf
-cp -f ${GITHUB_WORKSPACE}/patch/Q8B/* patch/kernel/archive/sc8280xp-edge/
-rm -f patch/kernel/archive/sc8280xp-edge/0042-drm-msm-dpu-Drop-sneaky-dev_pm_opp_set_rate-0.patch
-rm -f patch/kernel/archive/sc8280xp-edge/0044-drm-msm-dsi-Drop-dev_pm_opp_set_rate-0.patch
-rm -f patch/kernel/archive/sc8280xp-edge/0045-drm-msm-dp-Drop-dev_pm_opp_set_rate-0.patch
-rm -f patch/kernel/archive/sc8280xp-edge/0063-thermal-qcom-adc-tm5-drop-stale-return-check.patch
 
 # Re-enable Meson for the new kernel
 sed -i '28s/^/#/' config/sources/families/include/meson_common.inc
