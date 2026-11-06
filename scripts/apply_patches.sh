@@ -56,7 +56,7 @@ cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/roc
 cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/rockchip64-7.3/dt/
 
 # Radxa-dragon-q8b
-sed -i '45d' config/sources/families/sc8280xp.conf
+sed -i '32d' config/sources/families/sc8280xp.conf
 
 # Re-enable Meson for the new kernel
 sed -i '28s/^/#/' config/sources/families/include/meson_common.inc
