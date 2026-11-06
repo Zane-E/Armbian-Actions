@@ -57,6 +57,7 @@ cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/roc
 
 # Radxa-dragon-q8b
 sed -i '32d' config/sources/families/sc8280xp.conf
+rm -f patch/kernel/archive/sc8280xp-edge/0093-drm-msm-Fix-vm_bo-use-after-free-in-with_vm_locks.patch
 
 # Re-enable Meson for the new kernel
 sed -i '28s/^/#/' config/sources/families/include/meson_common.inc
