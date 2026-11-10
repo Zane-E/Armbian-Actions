@@ -1,0 +1,449 @@
+diff --git a/drivers/video/backlight/Kconfig b/drivers/video/backlight/Kconfig
+index 936ba1e4d35e..3b76e36bc47d 100644
+--- a/drivers/video/backlight/Kconfig
++++ b/drivers/video/backlight/Kconfig
+@@ -310,6 +310,21 @@ config BACKLIGHT_RT4831
+ 	  It's commonly used to drive the display WLED. There're four channels
+ 	  inisde, and each channel can provide up to 30mA current.
+ 
++config BACKLIGHT_SGM37604
++	tristate "SGM37604 Backlight Driver"
++	depends on I2C
++	help
++	  This enables support for SGM37604 I2C backlight driver.
++	  The SGM37604 is a high efficiency 4-string white LED driver
++	  with 12-bit brightness control via I2C.
++
++	  Device tree properties:
++	  - sgmicro,led-channels: bitmask for LED channels (default 0x0F)
++	  - sgmicro,max-current: max current setting 0-3 (25-40mA, default 0)
++
++	  To compile this driver as a module, choose M here: the module will
++	  be called sgm37604.
++
+ config BACKLIGHT_SAHARA
+ 	tristate "Tabletkiosk Sahara Touch-iT Backlight Driver"
+ 	depends on X86
+diff --git a/drivers/video/backlight/Makefile b/drivers/video/backlight/Makefile
+index e815f3f1deff..967ecec142bc 100644
+--- a/drivers/video/backlight/Makefile
++++ b/drivers/video/backlight/Makefile
+@@ -51,6 +51,7 @@ obj-$(CONFIG_BACKLIGHT_PCF50633)	+= pcf50633-backlight.o
+ obj-$(CONFIG_BACKLIGHT_PWM)		+= pwm_bl.o
+ obj-$(CONFIG_BACKLIGHT_QCOM_WLED)	+= qcom-wled.o
+ obj-$(CONFIG_BACKLIGHT_RT4831)		+= rt4831-backlight.o
++obj-$(CONFIG_BACKLIGHT_SGM37604)	+= sgm37604a.o
+ obj-$(CONFIG_BACKLIGHT_SAHARA)		+= kb3886_bl.o
+ obj-$(CONFIG_BACKLIGHT_SKY81452)	+= sky81452-backlight.o
+ obj-$(CONFIG_BACKLIGHT_TOSA)		+= tosa_bl.o
+diff --git a/drivers/video/backlight/sgm37604a.c b/drivers/video/backlight/sgm37604a.c
+new file mode 100644
+index 000000000000..d84ebddae36d
+--- /dev/null
++++ b/drivers/video/backlight/sgm37604a.c
+@@ -0,0 +1,405 @@
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/i2c.h>
++#include <linux/input.h>
++#include <linux/workqueue.h>
++#include <linux/mutex.h>
++#include <linux/slab.h>
++#include <linux/mutex.h>
++#ifdef CONFIG_HAS_EARLYSUSPEND
++#include <linux/earlysuspend.h>
++#endif
++#include <linux/kernel.h>
++#include <linux/delay.h>
++#include <linux/types.h>
++#include <linux/platform_device.h>
++#include <linux/leds.h>
++#include <linux/backlight.h>
++#include <linux/pinctrl/consumer.h>
++#include <linux/gpio/consumer.h>
++#if defined(CONFIG_BACKLIGHT_SGM37604)
++#include "sgm37604a.h"
++#endif
++#define SGM37604A_DEV_NAME "sgm37604a"
++
++#define BACKLIGHT_TAG                  "[SGM37604A] "
++#define BACKLIGHT_FUN(f)               pr_debug("[SGM37604A] %s\n", __func__)
++#define BACKLIGHT_ERR(fmt, args...)    pr_debug("[SGM37604A] %s %d : "fmt, __func__, __LINE__, ##args)
++#define BACKLIGHT_LOG(fmt, args...)    pr_debug(fmt, ##args)
++
++#define SGM37604A_MIN_VALUE_SETTINGS 16		/* value min leds_brightness_set */
++#define SGM37604A_MAX_VALUE_SETTINGS 4095	/* value max leds_brightness_set */
++#define MIN_MAX_SCALE(x) (((x) < SGM37604A_MIN_VALUE_SETTINGS) ? SGM37604A_MIN_VALUE_SETTINGS :\
++(((x) > SGM37604A_MAX_VALUE_SETTINGS) ? SGM37604A_MAX_VALUE_SETTINGS:(x)))
++
++struct sgm37604a_chip_data {
++	struct device *dev;
++	struct backlight_device *bled;
++	struct i2c_client *client;
++	struct gpio_desc *en_gpio;
++	u8 led_channels;
++	u8 max_current;
++};
++
++struct sgm37604a_chip_data *pchip;
++
++/* static unsigned char current_brightness; */
++static unsigned char is_suspend;
++
++struct semaphore SGM37604A_lock;
++
++/* SGM37604A Register Map */
++#define MAX_BRIGHTNESS			(4095)
++#define MID_BRIGHTNESS          (16)
++
++#define SGM37604A_CTL_BRIGHTNESS_LSB_REG			0x1A
++#define SGM37604A_CTL_BRIGHTNESS_MSB_REG			0x19
++#define SGM37604A_CTL_BACKLIGHT_MODE_REG                       	0x11
++#define SGM37604A_CTL_BACKLIGHT_LED_REG                        	0x10
++#define SGM37604A_CTL_BACKLIGHT_CURRENT_REG                     0x1B
++
++static char SGM37604A_i2c_write(struct i2c_client *client, u8 reg_addr, u8 *data, u8 len)
++{
++	s32 dummy;
++
++	if (client == NULL)
++		return -1;
++
++	while (len-- != 0) {
++		pr_debug("[SGM37604A] I2C Write: Reg=0x%02X, Data=0x%02X\n", reg_addr, *data);
++		dummy = i2c_smbus_write_byte_data(client, reg_addr, *data);
++
++		reg_addr++;
++		data++;
++		if (dummy < 0)
++			return -1;
++
++	}
++
++	return 0;
++}
++
++static int SGM37604A_i2c_read(struct i2c_client *client, u8 reg_addr, u8 *data)
++{
++	s32 ret;
++
++	if (client == NULL)
++		return -1;
++
++	ret = i2c_smbus_read_byte_data(client, reg_addr);
++	if (ret < 0)
++		return -1;
++
++	*data = (u8)ret;
++	return 0;
++}
++
++static int SGM37604A_smbus_write_byte(struct i2c_client *client,
++				   unsigned char reg_addr, unsigned char *data)
++{
++	int ret_val = 0;
++	int i = 0;
++	u8 fault_reg = 0;
++
++	ret_val = SGM37604A_i2c_write(client, reg_addr, data, 1);
++
++	for (i = 0; i < 5; i++) {
++		if (ret_val != 0)
++			SGM37604A_i2c_write(client, reg_addr, data, 1);
++		else {
++			ret_val = SGM37604A_i2c_read(client, 0x1F, &fault_reg);
++			if (ret_val == 0) {
++				pr_debug("[SGM37604A] Fault Reg(0x1F)=0x%02X: ", fault_reg);
++				if (fault_reg & (1 << 4))
++					pr_cont("SO(Open) ");
++				if (fault_reg & (1 << 3))
++					pr_cont("SC(Short) ");
++				if (fault_reg & (1 << 2))
++					pr_cont("TSD(OverTemp) ");
++				if (fault_reg & (1 << 1))
++					pr_cont("OC(OverCurrent) ");
++				if (fault_reg & (1 << 0))
++					pr_cont("OVP(OverVoltage) ");
++				if (fault_reg == 0)
++					pr_cont("No Fault");
++				pr_cont("\n");
++			}
++			return 0;
++		}
++	}
++
++	return ret_val;
++}
++
++unsigned int SGM37604A_set_brightness_level(unsigned int level_a)
++{
++	int ret_code = 0;
++	unsigned char data0,data1;
++
++	data0 = (0xF << 4) + (level_a & 0x00F);
++	data1 = (level_a >> 4);
++
++	/* Control A Brightness LSB & MSB */
++	ret_code = SGM37604A_smbus_write_byte(pchip->client, SGM37604A_CTL_BRIGHTNESS_LSB_REG, &data0);
++	if (ret_code != 0) {
++		BACKLIGHT_ERR("[Cust_SetBacklight] CTL_LSB fail: %d\n", ret_code);
++		return ret_code;
++	}
++	pr_debug("SGM37604A_set_brightness_level set 0x%x : 0x%X register success\n", SGM37604A_CTL_BRIGHTNESS_LSB_REG, data0);
++	
++	ret_code = SGM37604A_smbus_write_byte(pchip->client, SGM37604A_CTL_BRIGHTNESS_MSB_REG, &data1);
++	if (ret_code != 0) {
++		BACKLIGHT_ERR("[Cust_SetBacklight] CTL_MSB fail: %d\n", ret_code);
++		return ret_code;
++	}
++	pr_debug("SGM37604A_set_brightness_level set 0x%x : 0x%X register success\n", SGM37604A_CTL_BRIGHTNESS_MSB_REG, data1);
++
++	return 0;
++}
++
++void SGM37604A_set_backlight_reg_init(void)
++{
++	int ret_code = 0;
++	unsigned char data0, data1, data2;
++
++	data0 = 0x00;
++	data1 = pchip->led_channels;
++	data2 = pchip->max_current;
++
++	gpiod_set_value(pchip->en_gpio, 1);
++
++	ret_code = SGM37604A_smbus_write_byte(pchip->client, SGM37604A_CTL_BACKLIGHT_MODE_REG, &data0);
++	if (ret_code != 0) {
++		pr_debug("[Cust_SetBacklight] CTL_MODE fail: %d\n", ret_code);
++	}
++	BACKLIGHT_LOG("[SGM37604A] set backlight mode reg = 0x%x \n", data0);
++
++	ret_code = SGM37604A_smbus_write_byte(pchip->client, SGM37604A_CTL_BACKLIGHT_LED_REG, &data1);
++	if (ret_code != 0) {
++		pr_debug("[Cust_SetBacklight] CTL_LED fail: %d\n", ret_code);
++	}
++	BACKLIGHT_LOG("[SGM37604A] set backlight led reg = 0x%x \n", data1);
++
++	ret_code = SGM37604A_smbus_write_byte(pchip->client, SGM37604A_CTL_BACKLIGHT_CURRENT_REG, &data2);
++	if (ret_code != 0) {
++		pr_debug("[Cust_SetBacklight] CTL_CURRENT fail: %d\n", ret_code);
++	}
++	BACKLIGHT_LOG("[SGM37604A] set backlight current reg = 0x%x \n", data2);
++
++	SGM37604A_set_brightness_level(0x75B);
++}
++
++
++int sgm_last_level;
++int sgm37604a_set_backlight_level(unsigned int level)
++{
++	unsigned int level_a = 0;
++	unsigned int ret_code = 0;
++
++	BACKLIGHT_LOG("[SGM37604A] sgm37604a_set_backlight_level  [%d]\n", level);
++	sgm_last_level = level;
++
++	if (level == 0) {
++		ret_code = down_interruptible(&SGM37604A_lock);
++
++		level_a = 0;
++		SGM37604A_set_brightness_level(level_a);
++		up(&SGM37604A_lock);
++
++		is_suspend = 1;
++	} else {
++
++		level_a = MIN_MAX_SCALE(level);
++
++		if (is_suspend == 1) {
++			is_suspend = 0;
++
++			mdelay(10);
++			ret_code = down_interruptible(&SGM37604A_lock);
++
++			BACKLIGHT_LOG("[Brightness] level_a=%d\n", level_a);
++
++			up(&SGM37604A_lock);
++		}
++
++		ret_code = down_interruptible(&SGM37604A_lock);
++
++		ret_code = SGM37604A_set_brightness_level(level_a);
++		if (ret_code != 0)
++			BACKLIGHT_LOG("[Brightness] setting fail ----------\n");
++
++		up(&SGM37604A_lock);
++
++	}
++
++	return 0;
++}
++
++static int sgm37604a_bled_update_status(struct backlight_device *bl)
++{
++	sgm37604a_set_backlight_level(bl->props.brightness);
++
++	return 0;
++}
++
++static int sgm37604a_bled_get_brightness(struct backlight_device *bl)
++{
++	pr_debug("[SGM37604A] bl->props.brightness[%d]\n", bl->props.brightness);
++
++	return bl->props.brightness;
++}
++
++#if defined(CONFIG_BACKLIGHT_SGM37604)
++void sgm37604a_bled_enable(void)
++{
++	BACKLIGHT_LOG("[SGM37604A] %s \n", __func__);
++
++	SGM37604A_set_backlight_reg_init();
++}
++
++void sgm37604a_bled_disable(void)
++{
++	unsigned char data1 = 0;
++	BACKLIGHT_LOG("[SGM37604A] %s \n", __func__);
++
++	SGM37604A_smbus_write_byte(pchip->client, SGM37604A_CTL_BRIGHTNESS_LSB_REG, &data1);
++	msleep(2);
++	gpiod_set_value(pchip->en_gpio, 0);
++}
++#endif
++
++static const struct backlight_ops sgm37604a_bled_ops = {
++	.options = BL_CORE_SUSPENDRESUME,
++	.update_status = sgm37604a_bled_update_status,
++	.get_brightness = sgm37604a_bled_get_brightness,
++};
++
++
++
++static int SGM37604A_probe(struct i2c_client *client, const struct i2c_device_id *id)
++{
++	struct backlight_properties props;
++	int rc = 0;
++
++	pr_debug("SGM37604A_probe Enter\n");
++	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
++		dev_err(&client->dev, "i2c functionality check fail.\n");
++		return -EOPNOTSUPP;
++	}
++
++	pchip = devm_kzalloc(&client->dev,sizeof(struct sgm37604a_chip_data), GFP_KERNEL);
++	if (!pchip)
++	{
++		return -ENOMEM;
++	}
++
++	pchip->client = client;
++
++	{
++		u32 val32;
++		rc = of_property_read_u32(client->dev.of_node, "sgmicro,led-channels", &val32);
++		if (rc) {
++			pchip->led_channels = 0x07;
++			pr_debug("[SGM37604A] led-channels not found in DT, using default 0x07 (LED1+LED2+DEV_EN)\n");
++		} else {
++			pchip->led_channels = (u8)val32;
++		}
++	}
++
++	{
++		u32 current_val;
++		rc = of_property_read_u32(client->dev.of_node, "sgmicro,max-current", &current_val);
++		if (rc) {
++			pchip->max_current = 0x00;
++		} else {
++			if (current_val > 0x03) {
++				pchip->max_current = 0x00;
++			} else {
++				pchip->max_current = (u8)current_val;
++			}
++		}
++	}
++
++	pchip->en_gpio = devm_gpiod_get_optional(&client->dev, "enable", GPIOD_OUT_LOW);
++	if (IS_ERR(pchip->en_gpio)) {
++		rc = PTR_ERR(pchip->en_gpio);
++		pr_debug("[SGM37604A] failed to get enable gpio, rc=%d\n", rc);
++		return rc;
++	}
++
++	if (pchip->en_gpio) {
++		gpiod_set_value(pchip->en_gpio, 1);
++		pr_debug("[SGM37604A] enable gpio configured\n");
++	}
++	sema_init(&SGM37604A_lock, 1);
++
++	SGM37604A_set_backlight_reg_init();
++
++	props.type = BACKLIGHT_RAW;
++	props.brightness = 2000;
++	props.max_brightness = 4095;
++
++	pchip->bled =
++	    devm_backlight_device_register(&client->dev, "sgm37604a",
++					   &client->dev, pchip, &sgm37604a_bled_ops,
++					   &props);
++
++	if (IS_ERR(pchip->bled)) {
++		rc = PTR_ERR(pchip->bled);
++		pr_debug("[SGM37604A] failed to register backlight device, rc=%d\n", rc);
++		return rc;
++	}
++
++	pchip->dev = &client->dev;
++
++	pr_debug("SGM37604A_probe Success\n");
++	return 0;
++}
++
++
++static void SGM37604A_remove(struct i2c_client *client)
++{
++	if (pchip && pchip->bled) {
++		backlight_device_unregister(pchip->bled);
++	}
++}
++
++
++static int __attribute__ ((unused)) SGM37604A_detect(struct i2c_client *client, int kind,
++						  struct i2c_board_info *info)
++{
++	return 0;
++}
++
++static struct of_device_id sgm37604a_of_match[] = {
++	{.compatible = "sgmicro,sgm37604a"},
++	{},
++};
++MODULE_DEVICE_TABLE(of,sgm37604a_of_match);
++
++static const struct i2c_device_id sgm37604a_i2c_id[] = {
++	{ "sgm37604a", 0 },
++	{},
++};
++MODULE_DEVICE_TABLE(i2c, sgm37604a_i2c_id);
++
++static struct i2c_driver SGM37604A_i2c_driver = {
++	.driver = {
++ 			.owner  = THIS_MODULE,
++		   	.name = SGM37604A_DEV_NAME,
++#ifdef CONFIG_OF
++		   	.of_match_table = sgm37604a_of_match,
++#endif
++		   },
++
++	.id_table = sgm37604a_i2c_id,
++
++	.probe = SGM37604A_probe,
++	.remove = SGM37604A_remove,
++};
++
++module_i2c_driver(SGM37604A_i2c_driver);
++
++MODULE_AUTHOR("YeQiang Li <liyeqiang.com>");
++MODULE_DESCRIPTION("SGM37604A Driver");
++MODULE_LICENSE("GPL");
