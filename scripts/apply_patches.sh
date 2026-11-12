@@ -57,7 +57,28 @@ cp -f ${GITHUB_WORKSPACE}/patch/TVI/rk3399-tvi3315a.dts patch/kernel/archive/roc
 
 # Radxa-dragon-q8b
 sed -i '32d' config/sources/families/sc8280xp.conf
+rm -f patch/kernel/archive/sc8280xp-edge/0066-PCI-qcom-Only-check-bridge-nodes-for-PERST-GPIOs.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0070-soc-qcom-pmic_glink-Fix-device-access-from-worker-du.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0072-ASoC-qcom-q6apm-dai-wrap-the-position-of-a-full-ring.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0073-ASoC-qcom-q6apm-reset-the-hw-pointer-with-the-fragme.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0074-ASoC-qcom-q6apm-Fix-unmap-regions-response-handling.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0075-ASoC-qcom-q6apm-Clear-the-right-handle-on-pos-buffer.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0076-ASoC-qcom-q6apm-Unmap-DSP-buffers-before-removing-th.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0077-media-iris-avoid-bit-depth-validation-for-capture-fo.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0078-media-iris-Fix-power-off-ordering-to-disable-power-d.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0079-media-iris-Fix-frame-interval-enumeration-for-non-di.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0085-scsi-ufs-core-Fix-a-deadlock-between-clock-scaling-a.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0086-scsi-ufs-core-Remove-an-always-false-WARN_ONCE.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0087-scsi-ufs-core-Add-a-helper-for-clearing-hba-outstand.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0088-scsi-ufs-core-Fix-double-completion-in-ufshcd_clear_.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0089-scsi-ufs-core-Fix-double-release-in-ufshcd_eh_timed_.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0090-scsi-ufs-core-Remove-completed-without-interrupt-pat.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0091-scsi-ufs-core-Do-not-release-a-reserved-request-in-u.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0092-scsi-ufs-core-Clear-stale-UIC-result-byte-before-pee.patch
 rm -f patch/kernel/archive/sc8280xp-edge/0093-drm-msm-Fix-vm_bo-use-after-free-in-with_vm_locks.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0094-misc-fastrpc-fix-double-free-in-fastrpc_map_attach-e.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0099-media-iris-reset-AHB-bridge-before-enabling-HW-mode.patch
+rm -f patch/kernel/archive/sc8280xp-edge/0101-ASoC-qcom-audioreach-fix-module-cfg-blob-size-handli.patch
 
 # Re-enable Meson for the new kernel
 sed -i '28s/^/#/' config/sources/families/include/meson_common.inc
@@ -95,7 +116,7 @@ sed -i '/"--env" "TERM=\${TERM}"/a\		"--env" "TZ=${TZ:-Asia/Shanghai}"' lib/func
 sed -i '252{/else/s/^/#/}' lib/functions/cli/utils-cli.sh
 sed -i '253{/display_alert/s/^/#/}' lib/functions/cli/utils-cli.sh
 sed -i '272{/display_alert/s/^/#/}' lib/functions/cli/utils-cli.sh
-sed -i '380{/display_alert/s/^/#/}' lib/functions/main/config-prepare.sh
+sed -i '384{/display_alert/s/^/#/}' lib/functions/main/config-prepare.sh
 sed -i '58{/display_alert/s/^/#/}' lib/functions/general/git-oras-tree.sh
 sed -i '/display_alert "ORAS manifest fetch error"/c\		:' lib/functions/general/oci-oras.sh
 [ ! -d userpatches/extensions ] && mkdir -p userpatches/extensions
