@@ -81,9 +81,6 @@ sed -i 's|linux-libc-dev-${BRANCH}-${LINUXFAMILY}|linux-libc-dev-${LINUXFAMILY}|
 # Change IMAGE_TYPE from user-built to stable
 sed -i 's|IMAGE_TYPE=user-built|IMAGE_TYPE=stable|g' lib/functions/main/config-prepare.sh
 
-# Change the maximum frequency of RK3566 from 1800000 to 1992000
-sed -i 's|1800000|1992000|g' config/sources/families/include/rockchip64_common.inc
-
 # Append TZ environment variable to Docker (e.g. Asia/Shanghai)
 sed -i '/"--env" "TERM=\${TERM}"/a\		"--env" "TZ=${TZ:-Asia/Shanghai}"' lib/functions/host/docker.sh
 
